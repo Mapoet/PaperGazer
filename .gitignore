@@ -48,6 +48,7 @@ data/
 config.local.yaml
 config.test.yaml
 config.yaml
+configs/config.test.yaml
 .env
 .env.local
 
