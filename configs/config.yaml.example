@@ -1,0 +1,57 @@
+# PaperGazer 配置文件示例
+# 复制此文件为 config.yaml 并修改相应配置
+
+# 联系邮箱（用于 Crossref/Unpaywall API 礼貌池）
+mailto: "your-email@domain.com"
+
+# arXiv 配置
+arxiv:
+  # 关注的分类（GNSS/空间科学相关示例）
+  categories:
+    - "eess.SP"              # Signal Processing
+    - "physics.space-ph"      # Space Physics
+    - "astro-ph.IM"           # Instrumentation and Methods for Astrophysics
+    - "cs.LG"                 # Machine Learning
+    - "physics.geo-ph"        # Geophysics
+  max_results: 100            # 每次查询最大结果数
+  delay_seconds: 3            # 请求间隔（秒）
+
+# CNS 期刊配置
+cns:
+  issn:
+    nature:
+      - "0028-0836"           # print
+      - "1476-4687"           # online
+    science:
+      - "0036-8075"           # print
+      - "1095-9203"           # online
+    cell:
+      - "0092-8674"           # print
+      - "1097-4172"           # online
+
+# 存储配置
+store:
+  root: "./data"              # 数据根目录
+  db_path: "./data/db.sqlite3"  # 数据库路径
+  papers_dir: "./data/papers"   # 论文文件目录
+
+# 调度配置
+schedule:
+  enabled: true               # 是否启用定时任务
+  timezone: "Asia/Singapore"  # 时区
+  hour: 7                     # 每日执行时间（小时）
+  minute: 0                   # 每日执行时间（分钟）
+
+# 日志配置
+logging:
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
+  format: "json"              # json 或 text
+  file: "./data/papergazer.log"
+
+# 重试配置
+retry:
+  max_attempts: 3              # 最大重试次数
+  initial_delay: 1.0          # 初始延迟（秒）
+  max_delay: 60.0             # 最大延迟（秒）
+  exponential_base: 2.0       # 指数退避基数
+
