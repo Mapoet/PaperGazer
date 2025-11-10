@@ -15,7 +15,7 @@ from papergazer.core import fetch_by_identifier, run_daily_check
 from papergazer.store.db import init_db
 from papergazer.utils import setup_logging
 
-app = typer.Typer(help="PaperGazer: CNS + arXiv 每日巡检与 OA 全文抓取系统")
+app = typer.Typer(help="PaperGazer: 期刊 + arXiv 每日巡检与 OA 全文抓取系统")
 console = Console()
 
 
@@ -29,7 +29,7 @@ def check(
     ),
 ) -> None:
     """
-    执行每日巡检（arXiv + CNS via Crossref）
+    执行每日巡检（arXiv + 期刊 via Crossref）
     """
     try:
         # 加载配置

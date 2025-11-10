@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "papergazer"
 version = "0.1.0"
-description = "CNS + arXiv 每日巡检与 OA 全文抓取系统"
+description = "期刊 + arXiv 每日巡检与 OA 全文抓取系统"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

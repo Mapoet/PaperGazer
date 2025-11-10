@@ -12,8 +12,8 @@ arxiv:
   max_results: 50  # 增加结果数以便测试
   delay_seconds: 3
 
-# CNS 期刊配置
-cns:
+# 期刊配置
+journals:
   issn:
     nature:
       - "0028-0836"           # print

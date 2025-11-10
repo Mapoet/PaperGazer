@@ -73,7 +73,7 @@ config = load_config("configs/config.test.yaml")
 
 1. **mailto**: 联系邮箱（必需）
 2. **arxiv**: arXiv 相关配置（分类、结果数、延迟等）
-3. **cns**: CNS 期刊 ISSN 配置
+3. **journals**: 期刊 ISSN 配置（支持 print 和 online ISSN，可配置多个期刊）
 4. **store**: 存储路径配置
 5. **schedule**: 定时任务配置
 6. **logging**: 日志配置

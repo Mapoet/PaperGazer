@@ -1,5 +1,6 @@
 """
-Crossref API 封装：增量拉取 CNS 期刊论文
+Crossref API 封装：增量拉取期刊论文
+支持通过 print 或 online ISSN 查询特定期刊
 """
 
 import logging

@@ -7,18 +7,60 @@ import json
 import logging
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Dict, List, Optional
 
-from papergazer.store.db import get_session, PaperItem
+from papergazer.store.db import get_session, PaperItem, init_db
 from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_db_initialized(db_path: str | Path | None = None) -> None:
+    """
+    确保数据库已初始化
+    
+    Args:
+        db_path: 数据库路径，如果为 None 则尝试从默认配置加载
+    
+    Raises:
+        RuntimeError: 如果数据库未初始化且无法自动初始化
+    """
+    # 尝试获取会话，如果成功则数据库已初始化
+    try:
+        get_session().close()
+        return  # 数据库已初始化
+    except RuntimeError:
+        pass  # 数据库未初始化，继续下面的逻辑
+    
+    if db_path:
+        init_db(db_path)
+        return
+    
+    # 尝试从默认配置文件加载
+    try:
+        from papergazer.config import load_config
+        config_path = Path("configs/config.yaml")
+        if not config_path.exists():
+            config_path = Path("configs/config.test.yaml")
+        
+        if config_path.exists():
+            config = load_config(config_path)
+            init_db(config.store.db_path)
+            return
+    except Exception as e:
+        logger.debug(f"无法自动初始化数据库: {e}")
+    
+    raise RuntimeError(
+        "数据库未初始化。请先调用 init_db(db_path) 或确保配置文件存在。"
+    )
 
 
 def analyze_authors_by_days(
     days: int,
     sources: Optional[List[str]] = None,
     top_n: int = 10,
+    db_path: Optional[str | Path] = None,
 ) -> Dict:
     """
     分析指定天数内的作者信息
@@ -27,10 +69,12 @@ def analyze_authors_by_days(
         days: 查询天数
         sources: 数据源列表，如果为 None 则分析所有数据源
         top_n: 返回前 N 名作者
+        db_path: 数据库路径（可选，如果未提供则尝试自动检测）
 
     Returns:
         分析结果字典
     """
+    _ensure_db_initialized(db_path)
     session = get_session()
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
@@ -98,6 +142,7 @@ def analyze_abstracts_by_days(
     days: int,
     sources: Optional[List[str]] = None,
     min_length: int = 100,
+    db_path: Optional[str | Path] = None,
 ) -> Dict:
     """
     分析指定天数内的摘要信息
@@ -106,10 +151,12 @@ def analyze_abstracts_by_days(
         days: 查询天数
         sources: 数据源列表，如果为 None 则分析所有数据源
         min_length: 摘要最小长度（字符数）
+        db_path: 数据库路径（可选，如果未提供则尝试自动检测）
 
     Returns:
         分析结果字典
     """
+    _ensure_db_initialized(db_path)
     session = get_session()
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
@@ -162,6 +209,7 @@ def analyze_abstracts_by_days(
 def analyze_oa_status_by_days(
     days: int,
     sources: Optional[List[str]] = None,
+    db_path: Optional[str | Path] = None,
 ) -> Dict:
     """
     分析指定天数内的 OA 状态
@@ -169,10 +217,12 @@ def analyze_oa_status_by_days(
     Args:
         days: 查询天数
         sources: 数据源列表，如果为 None 则分析所有数据源
+        db_path: 数据库路径（可选，如果未提供则尝试自动检测）
 
     Returns:
         分析结果字典
     """
+    _ensure_db_initialized(db_path)
     session = get_session()
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
@@ -226,6 +276,7 @@ def analyze_venues_by_days(
     days: int,
     sources: Optional[List[str]] = None,
     top_n: int = 10,
+    db_path: Optional[str | Path] = None,
 ) -> Dict:
     """
     分析指定天数内的期刊/会议信息
@@ -234,10 +285,12 @@ def analyze_venues_by_days(
         days: 查询天数
         sources: 数据源列表，如果为 None 则分析所有数据源
         top_n: 返回前 N 个期刊/会议
+        db_path: 数据库路径（可选，如果未提供则尝试自动检测）
 
     Returns:
         分析结果字典
     """
+    _ensure_db_initialized(db_path)
     session = get_session()
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
@@ -282,6 +335,7 @@ def get_papers_by_days(
     sources: Optional[List[str]] = None,
     limit: Optional[int] = None,
     order_by: str = "updated_date",
+    db_path: Optional[str | Path] = None,
 ) -> List[Dict]:
     """
     获取指定天数内的论文列表
@@ -291,10 +345,12 @@ def get_papers_by_days(
         sources: 数据源列表，如果为 None 则查询所有数据源
         limit: 限制返回数量
         order_by: 排序字段（'updated_date' 或 'published_date'）
+        db_path: 数据库路径（可选，如果未提供则尝试自动检测）
 
     Returns:
         论文列表
     """
+    _ensure_db_initialized(db_path)
     session = get_session()
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)

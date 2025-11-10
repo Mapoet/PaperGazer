@@ -12,6 +12,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from papergazer.config import load_config
 from papergazer.utils import (
     analyze_abstracts_by_days,
     analyze_authors_by_days,
@@ -19,6 +20,7 @@ from papergazer.utils import (
     analyze_venues_by_days,
     get_papers_by_days,
 )
+from papergazer.utils import setup_logging
 from rich.console import Console
 from rich.table import Table
 
@@ -54,6 +56,28 @@ def main():
     limit = int(sys.argv[4]) if len(sys.argv) > 4 and analysis_type == "list" else None
 
     console.print(f"[bold green]开始分析最近 {days} 天的论文...[/bold green]")
+
+    # 加载配置并初始化数据库
+    config_path = project_root / "configs" / "config.test.yaml"
+    if not config_path.exists():
+        config_path = project_root / "configs" / "config.yaml"
+    
+    if not config_path.exists():
+        console.print(f"[bold red]配置文件不存在，请先创建配置文件[/bold red]")
+        console.print(f"参考: configs/config.yaml.example")
+        return
+
+    try:
+        config = load_config(config_path)
+        setup_logging(config.logging)
+        
+        # 初始化数据库
+        from papergazer.store.db import init_db
+        init_db(config.store.db_path)
+        
+    except Exception as e:
+        console.print(f"[bold red]配置加载失败: {e}[/bold red]")
+        return
 
     try:
         if analysis_type == "authors":

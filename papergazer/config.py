@@ -22,8 +22,8 @@ class ArxivConfig(BaseSettings):
     delay_seconds: float = Field(default=3.0, description="请求间隔（秒）")
 
 
-class CNSConfig(BaseSettings):
-    """CNS 期刊配置"""
+class JournalsConfig(BaseSettings):
+    """期刊配置"""
 
     issn: dict[str, List[str]] = Field(
         default_factory=lambda: {
@@ -31,7 +31,7 @@ class CNSConfig(BaseSettings):
             "science": ["0036-8075", "1095-9203"],
             "cell": ["0092-8674", "1097-4172"],
         },
-        description="CNS 期刊 ISSN 列表",
+        description="期刊 ISSN 列表（支持 print 和 online ISSN）",
     )
 
 
@@ -87,7 +87,7 @@ class Settings(BaseSettings):
         description="API密钥（如果未来需要），从 YAML 配置文件读取",
     )
     arxiv: ArxivConfig = Field(default_factory=ArxivConfig)
-    cns: CNSConfig = Field(default_factory=CNSConfig)
+    journals: JournalsConfig = Field(default_factory=JournalsConfig)
     store: StoreConfig = Field(default_factory=StoreConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)

@@ -18,6 +18,9 @@ from .query import (
     query_crossref_by_days,
     query_europe_pmc_by_days,
     query_unpaywall_by_days,
+    search_papers_by_author,
+    search_papers_by_venue,
+    search_papers_by_keyword,
 )
 
 __all__ = [
@@ -27,6 +30,10 @@ __all__ = [
     "query_europe_pmc_by_days",
     "query_unpaywall_by_days",
     "query_all_sources_by_days",
+    # 搜索功能
+    "search_papers_by_author",
+    "search_papers_by_venue",
+    "search_papers_by_keyword",
     # 分析功能
     "analyze_authors_by_days",
     "analyze_abstracts_by_days",

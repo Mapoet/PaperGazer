@@ -9,7 +9,7 @@ import shutil
 import yaml
 from unittest.mock import Mock, AsyncMock
 
-from papergazer.config import Settings, ArxivConfig, CNSConfig, StoreConfig
+from papergazer.config import Settings, ArxivConfig, JournalsConfig, StoreConfig
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def sample_config(temp_dir, temp_db_path, temp_papers_dir):
             "max_results": 10,
             "delay_seconds": 0.1,  # 测试时使用较短延迟
         },
-        "cns": {
+        "journals": {
             "issn": {
                 "nature": ["0028-0836", "1476-4687"],
                 "science": ["0036-8075", "1095-9203"],

@@ -106,7 +106,7 @@ async def ingest_arxiv(config: Settings) -> int:
 
 async def ingest_crossref(config: Settings) -> int:
     """
-    巡检 Crossref（CNS 期刊）
+    巡检 Crossref（期刊）
     使用出版时间（publication date）进行增量查询
 
     Args:
@@ -115,7 +115,7 @@ async def ingest_crossref(config: Settings) -> int:
     Returns:
         新增/更新的论文数量
     """
-    logger.info("开始巡检 Crossref（CNS 期刊）")
+    logger.info("开始巡检 Crossref（期刊）")
 
     session = get_session()
     try:
@@ -135,7 +135,7 @@ async def ingest_crossref(config: Settings) -> int:
 
         # 收集所有 ISSN
         all_issns: list[str] = []
-        for journal_issns in config.cns.issn.values():
+        for journal_issns in config.journals.issn.values():
             all_issns.extend(journal_issns)
 
         # 查询 Crossref（批量处理）

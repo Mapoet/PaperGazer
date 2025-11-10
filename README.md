@@ -1,12 +1,12 @@
 # PaperGazer
 
-**CNS + arXiv 每日巡检与 OA 全文抓取系统**
+**期刊 + arXiv 每日巡检与 OA 全文抓取系统**
 
-PaperGazer 是一个自动化论文监控与抓取系统，支持每日巡检 arXiv 预印本和 CNS（Nature/Science/Cell）期刊，并按需抓取开放获取（OA）全文或非 OA 摘要。
+PaperGazer 是一个自动化论文监控与抓取系统，支持每日巡检 arXiv 预印本和各类期刊（通过 ISSN），并按需抓取开放获取（OA）全文或非 OA 摘要。
 
 ## 功能特性
 
-- 📡 **每日自动巡检**：定时抓取 arXiv 和 CNS 期刊最新论文元数据
+- 📡 **每日自动巡检**：定时抓取 arXiv 和期刊最新论文元数据（支持通过 print 或 online ISSN 查询）
 - 🔍 **多源数据采集**：支持 arXiv、Crossref、Unpaywall、Europe PMC
 - 📥 **智能全文抓取**：按优先级自动获取 OA PDF 或摘要
 - 💾 **结构化存储**：SQLite 数据库 + 文件系统存储
@@ -53,6 +53,7 @@ cp configs/config.yaml.example configs/config.yaml
 **重要配置项**：
 - `mailto`: 联系邮箱（用于 Crossref/Unpaywall API，必须使用真实邮箱，不能使用 `test@example.com`）
 - `arxiv.categories`: 关注的 arXiv 分类列表
+- `journals.issn`: 期刊 ISSN 列表（支持 print 和 online ISSN，可配置多个期刊）
 - `store.db_path`: 数据库文件路径
 - `store.papers_dir`: 论文文件存储目录
 
@@ -64,7 +65,7 @@ cp configs/config.yaml.example configs/config.yaml
 ### 使用
 
 ```bash
-# 每日巡检（arXiv + CNS）
+# 每日巡检（arXiv + 期刊）
 python -m papergazer.cli check
 
 # 按需抓取全文

@@ -16,8 +16,8 @@ arxiv:
   max_results: 100            # 每次查询最大结果数
   delay_seconds: 3            # 请求间隔（秒）
 
-# CNS 期刊配置
-cns:
+# 期刊配置
+journals:
   issn:
     nature:
       - "0028-0836"           # print

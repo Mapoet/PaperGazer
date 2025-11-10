@@ -43,7 +43,7 @@ async def daily_ingest_all(config: Settings) -> dict:
         logger.error(f"arXiv 巡检失败: {e}", exc_info=True)
         results["arxiv"] = {"count": 0, "status": "error", "error": str(e)}
 
-    # 2. Crossref 巡检（CNS 期刊）
+    # 2. Crossref 巡检（期刊）
     try:
         logger.info("开始 Crossref 巡检")
         crossref_count = await ingest_crossref(config)
