@@ -4,9 +4,11 @@
 支持摘要、作者、OA状态、期刊等分析功能
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -27,45 +29,176 @@ from rich.table import Table
 console = Console()
 
 
+def create_parser() -> argparse.ArgumentParser:
+    """创建命令行参数解析器
+    
+    Returns:
+        argparse.ArgumentParser: 配置好的参数解析器
+    """
+    parser = argparse.ArgumentParser(
+        description="论文分析脚本 - 支持摘要、作者、OA状态、期刊等分析功能",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例用法:
+  # 作者分析（最近7天）
+  %(prog)s authors 7
+  
+  # 摘要分析（最近30天，仅arxiv和crossref）
+  %(prog)s abstracts 30 --sources arxiv crossref
+  
+  # OA状态分析（最近7天）
+  %(prog)s oa 7
+  
+  # 期刊/会议分析（最近30天）
+  %(prog)s venues 30 --top 20
+  
+  # 论文列表（最近7天，限制100条）
+  %(prog)s list 7 --limit 100
+  
+  # 指定配置文件
+  %(prog)s authors 7 --config configs/config.prod.yaml
+""",
+    )
+
+    # 分析类型（必需位置参数）
+    parser.add_argument(
+        "analysis_type",
+        type=str,
+        choices=["authors", "abstracts", "oa", "venues", "list"],
+        help="分析类型: authors(作者), abstracts(摘要), oa(开放获取), venues(期刊/会议), list(论文列表)",
+    )
+
+    # 天数（必需位置参数）
+    parser.add_argument(
+        "days",
+        type=int,
+        help="查询天数（正整数）",
+    )
+
+    # 数据源（可选参数）
+    parser.add_argument(
+        "-s",
+        "--sources",
+        type=str,
+        nargs="+",
+        choices=["arxiv", "crossref", "eupmc"],
+        default=None,
+        help="指定数据源列表（默认：所有数据源）",
+    )
+
+    # 限制数量（可选参数，主要用于list类型）
+    parser.add_argument(
+        "-l",
+        "--limit",
+        type=int,
+        default=100,
+        help="限制返回数量（默认：100，仅用于list类型）",
+    )
+
+    # Top N（可选参数，用于authors和venues类型）
+    parser.add_argument(
+        "-t",
+        "--top",
+        type=int,
+        default=10,
+        help="显示Top N结果（默认：10，用于authors和venues类型）",
+    )
+
+    # 配置文件路径（可选参数）
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default=None,
+        help="配置文件路径（默认：自动查找config.test.yaml或config.yaml）",
+    )
+
+    # 输出格式（可选参数）
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        choices=["table", "json", "csv"],
+        default="table",
+        help="输出格式（默认：table）",
+    )
+
+    # 详细输出（可选参数）
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="详细输出模式",
+    )
+
+    return parser
+
+
+def validate_args(args: argparse.Namespace) -> None:
+    """验证参数有效性
+    
+    Args:
+        args: 解析后的参数
+        
+    Raises:
+        ValueError: 参数无效时抛出
+    """
+    if args.days <= 0:
+        raise ValueError(f"天数必须为正整数，当前值: {args.days}")
+    
+    if args.limit is not None and args.limit <= 0:
+        raise ValueError(f"限制数量必须为正整数，当前值: {args.limit}")
+    
+    if args.top <= 0:
+        raise ValueError(f"Top N必须为正整数，当前值: {args.top}")
+
+
 def main():
     """主函数"""
-    if len(sys.argv) < 3:
-        console.print("[bold yellow]用法:[/bold yellow]")
-        console.print("  python scripts/analyze_papers.py <analysis_type> <days> [sources...]")
-        console.print("\n[bold cyan]分析类型:[/bold cyan]")
-        console.print("  authors    - 作者分析")
-        console.print("  abstracts  - 摘要分析")
-        console.print("  oa         - OA状态分析")
-        console.print("  venues     - 期刊/会议分析")
-        console.print("  list       - 论文列表")
-        console.print("\n[bold cyan]参数:[/bold cyan]")
-        console.print("  days: 查询天数（必需）")
-        console.print("  sources: 数据源列表，可选值：arxiv, crossref, eupmc")
-        console.print("          如果不指定，则分析所有数据源")
-        console.print("\n[bold cyan]示例:[/bold cyan]")
-        console.print("  python scripts/analyze_papers.py authors 7")
-        console.print("  python scripts/analyze_papers.py abstracts 30 arxiv crossref")
-        console.print("  python scripts/analyze_papers.py oa 7")
-        console.print("  python scripts/analyze_papers.py venues 30")
-        console.print("  python scripts/analyze_papers.py list 7 10")
-        return
+    # 创建并解析参数
+    parser = create_parser()
+    args = parser.parse_args()
 
-    analysis_type = sys.argv[1].lower()
-    days = int(sys.argv[2])
-    sources = sys.argv[3:] if len(sys.argv) > 3 else None
-    limit = int(sys.argv[4]) if len(sys.argv) > 4 and analysis_type == "list" else None
+    try:
+        # 验证参数
+        validate_args(args)
+    except ValueError as e:
+        console.print(f"[bold red]参数错误: {e}[/bold red]")
+        parser.print_help()
+        return 1
+
+    # 提取参数
+    analysis_type = args.analysis_type.lower()
+    days = args.days
+    sources = args.sources
+    limit = args.limit
+    top_n = args.top
+    output_format = args.output
+    verbose = args.verbose
+
+    if verbose:
+        console.print(f"[dim]分析类型: {analysis_type}[/dim]")
+        console.print(f"[dim]查询天数: {days}[/dim]")
+        console.print(f"[dim]数据源: {sources or '全部'}[/dim]")
+        console.print(f"[dim]输出格式: {output_format}[/dim]")
 
     console.print(f"[bold green]开始分析最近 {days} 天的论文...[/bold green]")
 
     # 加载配置并初始化数据库
-    config_path = project_root / "configs" / "config.test.yaml"
-    if not config_path.exists():
-        config_path = project_root / "configs" / "config.yaml"
-    
-    if not config_path.exists():
-        console.print(f"[bold red]配置文件不存在，请先创建配置文件[/bold red]")
-        console.print(f"参考: configs/config.yaml.example")
-        return
+    if args.config:
+        config_path = Path(args.config)
+        if not config_path.exists():
+            console.print(f"[bold red]指定的配置文件不存在: {config_path}[/bold red]")
+            return 1
+    else:
+        config_path = project_root / "configs" / "config.test.yaml"
+        if not config_path.exists():
+            config_path = project_root / "configs" / "config.yaml"
+        
+        if not config_path.exists():
+            console.print(f"[bold red]配置文件不存在，请先创建配置文件[/bold red]")
+            console.print(f"参考: configs/config.yaml.example")
+            return 1
 
     try:
         config = load_config(config_path)
@@ -75,13 +208,17 @@ def main():
         from papergazer.store.db import init_db
         init_db(config.store.db_path)
         
+        if verbose:
+            console.print(f"[dim]配置文件: {config_path}[/dim]")
+            console.print(f"[dim]数据库路径: {config.store.db_path}[/dim]")
+        
     except Exception as e:
         console.print(f"[bold red]配置加载失败: {e}[/bold red]")
-        return
+        return 1
 
     try:
         if analysis_type == "authors":
-            result = analyze_authors_by_days(days, sources, top_n=10)
+            result = analyze_authors_by_days(days, sources, top_n=top_n)
 
             table = Table(title=f"作者分析（最近 {days} 天）")
             table.add_column("排名", style="cyan")
@@ -173,7 +310,7 @@ def main():
                 console.print(table)
 
         elif analysis_type == "venues":
-            result = analyze_venues_by_days(days, sources, top_n=10)
+            result = analyze_venues_by_days(days, sources, top_n=top_n)
 
             table = Table(title=f"期刊/会议分析（最近 {days} 天）")
             table.add_column("排名", style="cyan")
@@ -205,7 +342,9 @@ def main():
             table.add_column("OA", style="yellow")
             table.add_column("摘要", style="cyan")
 
-            for paper in papers[:limit if limit else 20]:
+            display_papers = papers[:limit] if limit else papers
+            
+            for paper in display_papers:
                 title = paper["title"] or "无标题"
                 if len(title) > 40:
                     title = title[:37] + "..."
@@ -225,20 +364,25 @@ def main():
                 )
 
             console.print(table)
-            console.print(f"\n[cyan]共显示 {len(papers)} 条记录[/cyan]")
+            console.print(f"\n[cyan]共显示 {len(display_papers)} 条记录[/cyan]")
+            if len(papers) > len(display_papers):
+                console.print(f"[dim]（实际查询到 {len(papers)} 条，已限制显示）[/dim]")
 
         else:
             console.print(f"[bold red]未知的分析类型: {analysis_type}[/bold red]")
             console.print("支持的类型: authors, abstracts, oa, venues, list")
+            return 1
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
-        import traceback
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        return 1
 
-        console.print(traceback.format_exc())
-        raise
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
 

@@ -51,7 +51,7 @@ async def query_arxiv(
         "search_query": query,
         "sortBy": "lastUpdatedDate",
         "sortOrder": "descending",
-        "max_results": min(max_results, 2000),  # arXiv 限制每片不超过 2000
+        "max_results": min(max_results, 10000),  # arXiv 限制每片不超过 10000
         "start": start,
     }
 

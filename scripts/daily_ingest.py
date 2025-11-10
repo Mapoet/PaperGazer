@@ -67,6 +67,9 @@ async def main():
 
   # 查询指定时间范围的论文（忽略检查点）
   python scripts/daily_ingest.py --since 2025-01-01T00:00:00 --until 2025-01-31T23:59:59
+
+  # 使用指定的配置文件
+  python scripts/daily_ingest.py --config configs/my_config.yaml
         """,
     )
 
@@ -116,8 +119,17 @@ async def main():
         type=int,
         help="查询最近 N 天的论文（等同于 --since 为 N 天前，会忽略检查点过滤）",
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="配置文件路径（默认: configs/config.test.yaml 或 configs/config.yaml）",
+    )
 
     args = parser.parse_args()
+    
+    # 检查参数冲突
+    if args.days is not None and args.since is not None:
+        console.print("[bold yellow]警告: 同时指定了 --days 和 --since，将使用 --days 参数[/bold yellow]")
     
     # 解析时间范围参数
     since = None
@@ -171,12 +183,24 @@ async def main():
         console.print("[bold green]开始执行每日巡检任务（所有数据源）...[/bold green]")
 
     # 加载配置
-    config_path = project_root / "configs" / "config.test.yaml"
+    if args.config:
+        # 用户指定了配置文件
+        config_path = Path(args.config)
+        if not config_path.is_absolute():
+            config_path = project_root / config_path
+    else:
+        # 使用默认配置文件（优先使用 config.test.yaml）
+        config_path = project_root / "configs" / "config.test.yaml"
+        if not config_path.exists():
+            config_path = project_root / "configs" / "config.yaml"
+    
     if not config_path.exists():
         console.print(f"[bold red]配置文件不存在: {config_path}[/bold red]")
+        console.print("[yellow]提示: 请复制 configs/config.yaml.example 为 configs/config.yaml 并修改相应配置[/yellow]")
         return
 
     try:
+        console.print(f"[cyan]使用配置文件: {config_path}[/cyan]")
         config = load_config(config_path)
         setup_logging(config.logging)
 
