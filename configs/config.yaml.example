@@ -4,21 +4,31 @@
 # 联系邮箱（用于 Crossref/Unpaywall API 礼貌池）
 mailto: "your-email@domain.com"
 
-# arXiv 配置
+# arXiv 配置（测试时使用较小值）
 arxiv:
-  # 关注的分类（GNSS/空间科学相关示例）
   categories:
+    # 原有分类
     - "eess.SP"              # Signal Processing
     - "physics.space-ph"      # Space Physics
-    - "astro-ph.IM"           # Instrumentation and Methods for Astrophysics
-    - "cs.LG"                 # Machine Learning
+    # 地学领域
     - "physics.geo-ph"        # Geophysics
-  max_results: 100            # 每次查询最大结果数
-  delay_seconds: 3            # 请求间隔（秒）
+    - "physics.ao-ph"         # Atmospheric and Oceanic Physics
+    # 遥感领域
+    - "cs.CV"                 # Computer Vision (遥感图像处理)
+    - "eess.IV"               # Image and Video Processing (遥感图像处理)
+    # 人工智能领域
+    - "cs.AI"                 # Artificial Intelligence
+    - "cs.LG"                 # Machine Learning
+    - "cs.NE"                 # Neural and Evolutionary Computing
+    - "cs.CL"                 # Computation and Language (自然语言处理)
+    - "stat.ML"               # Machine Learning (统计学)
+  max_results: 50  # 增加结果数以便测试
+  delay_seconds: 3
 
 # 期刊配置
 journals:
   issn:
+    # CNS 期刊
     nature:
       - "0028-0836"           # print
       - "1476-4687"           # online
@@ -28,6 +38,118 @@ journals:
     cell:
       - "0092-8674"           # print
       - "1097-4172"           # online
+    # 地学领域权威期刊
+    nature_geoscience:
+      - "1752-0894"           # print
+      - "1752-0908"           # online
+    geology:
+      - "0091-7613"           # print
+      - "1943-2682"           # online
+    earth_planetary_science_letters:
+      - "0012-821X"           # print
+      - "1385-013X"           # online
+    geophysical_research_letters:
+      - "0094-8276"           # print
+      - "1944-8007"           # online
+    journal_of_geophysical_research_solid_earth:
+      - "2169-9313"           # online (JGR Solid Earth)
+    geochimica_et_cosmochimica_acta:
+      - "0016-7037"           # print
+      - "1872-9533"           # online
+    reviews_of_geophysics:
+      - "8755-1209"           # print
+      - "1944-9208"           # online
+    tectonophysics:
+      - "0040-1951"           # print
+      - "1879-3266"           # online
+    quaternary_science_reviews:
+      - "0277-3791"           # print
+      - "1873-457X"           # online
+    # 更多地学期刊
+    earth_science_reviews:
+      - "0012-8252"           # print
+      - "1872-6828"           # online
+    global_and_planetary_change:
+      - "0921-8181"           # print
+      - "1872-6361"           # online
+    precambrian_research:
+      - "0301-9268"           # print
+      - "1872-7433"           # online
+    lithos:
+      - "0024-4937"           # print
+      - "1872-6143"           # online
+    chemical_geology:
+      - "0009-2541"           # print
+      - "1872-6836"           # online
+    marine_geology:
+      - "0025-3227"           # print
+      - "1872-6151"           # online
+    sedimentary_geology:
+      - "0037-0738"           # print
+      - "1879-0968"           # online
+    journal_of_geophysical_research_atmospheres:
+      - "2169-897X"           # online (JGR Atmospheres)
+    journal_of_geophysical_research_oceans:
+      - "2169-9291"           # online (JGR Oceans)
+    journal_of_geophysical_research_biogeosciences:
+      - "2169-8961"           # online (JGR Biogeosciences)
+    journal_of_geophysical_research_earth_surface:
+      - "2169-9003"           # online (JGR Earth Surface)
+    # 遥感领域权威期刊
+    remote_sensing_of_environment:
+      - "0034-4257"           # print
+      - "1879-0704"           # online
+    isprs_journal_of_photogrammetry_remote_sensing:
+      - "0924-2716"           # print
+      - "1872-8235"           # online
+    ieee_transactions_geoscience_remote_sensing:
+      - "0196-2892"           # print
+      - "1558-0644"           # online
+    international_journal_of_remote_sensing:
+      - "0143-1161"           # print
+      - "1366-5901"           # online
+    remote_sensing_mdpi:
+      - "2072-4292"           # online
+    ieee_journal_selected_topics_applied_earth_observations:
+      - "1939-1404"           # online
+    giscience_remote_sensing:
+      - "1548-1603"           # print
+      - "1553-2398"           # online
+    international_journal_applied_earth_observation_geoinformation:
+      - "1569-8432"           # print
+      - "1872-826X"           # online
+    international_journal_digital_earth:
+      - "1753-8947"           # print
+      - "1753-8955"           # online
+    journal_of_applied_remote_sensing:
+      - "1931-3195"           # online
+    # 人工智能领域权威期刊
+    nature_machine_intelligence:
+      - "2522-5839"           # online
+    journal_of_machine_learning_research:
+      - "1532-4435"           # online
+    ieee_transactions_pattern_analysis_machine_intelligence:
+      - "0162-8828"           # print
+      - "1939-3539"           # online
+    artificial_intelligence:
+      - "0004-3702"           # print
+      - "1872-7921"           # online
+    journal_of_artificial_intelligence_research:
+      - "1076-9757"           # online
+    neural_networks:
+      - "0893-6080"           # print
+      - "1879-2782"           # online
+    pattern_recognition:
+      - "0031-3203"           # print
+      - "1873-5142"           # online
+    ieee_transactions_neural_networks_learning_systems:
+      - "2162-237X"           # online
+    machine_learning:
+      - "0885-6125"           # print
+      - "1573-0565"           # online
+    international_journal_computer_vision:
+      - "0920-5691"           # print
+      - "1573-1405"           # online
 
 # 存储配置
 store:

@@ -48,16 +48,27 @@ async def ingest_arxiv(config: Settings) -> int:
 
         total_fetched = 0
         filtered_count = 0
+        max_updated_time = last_checkpoint  # 跟踪查询到的最大更新时间
+        min_updated_time = None  # 跟踪查询到的最小更新时间（用于调试）
+        
         async for entry in query_arxiv(
             categories=config.arxiv.categories,
             max_results=config.arxiv.max_results,
             delay_seconds=config.arxiv.delay_seconds,
         ):
             total_fetched += 1
+            
+            # 更新最大和最小更新时间（即使被过滤也要记录，用于更新检查点和调试）
+            if entry.updated > max_updated_time:
+                max_updated_time = entry.updated
+            if min_updated_time is None or entry.updated < min_updated_time:
+                min_updated_time = entry.updated
+            
             # 过滤：只处理更新日期晚于检查点的条目
             if entry.updated < last_checkpoint:
                 filtered_count += 1
-                logger.debug(f"过滤条目 {entry.arxiv_id}: updated={entry.updated}, checkpoint={last_checkpoint}")
+                if filtered_count <= 3:  # 只记录前3个被过滤的条目，避免日志过多
+                    logger.debug(f"过滤条目 {entry.arxiv_id}: updated={entry.updated}, checkpoint={last_checkpoint}")
                 continue
 
             # 转换为标准化元数据
@@ -80,12 +91,29 @@ async def ingest_arxiv(config: Settings) -> int:
             session.commit()
             logger.debug(f"已处理 {count} 条 arXiv 记录（最终提交）")
 
-        # 更新检查点
-        new_checkpoint = datetime.now(timezone.utc)
+        # 更新检查点：使用查询到的最大更新时间，而不是当前时间
+        # 这样可以确保下次查询时能获取到所有新论文
+        if max_updated_time > last_checkpoint:
+            new_checkpoint = max_updated_time
+        else:
+            # 如果没有查询到更新的论文，保持原检查点不变
+            new_checkpoint = last_checkpoint
+        
         update_checkpoint(session, "arxiv", new_checkpoint, count)
         session.commit()
 
         logger.info(f"arXiv 巡检完成，获取 {total_fetched} 条，过滤 {filtered_count} 条，处理 {count} 条记录")
+        if total_fetched > 0:
+            logger.info(f"查询到的论文更新时间范围: {min_updated_time} ~ {max_updated_time}")
+        logger.info(f"检查点更新: {last_checkpoint} -> {new_checkpoint}")
+        
+        # 如果所有论文都被过滤，给出提示
+        if total_fetched > 0 and filtered_count == total_fetched:
+            logger.warning(
+                f"所有 {total_fetched} 条论文都被过滤（更新时间早于检查点）。"
+                f"如果这是首次运行或需要重新抓取，可以删除数据库中的检查点记录。"
+            )
+        
         return count
 
     except ArxivAPIError as e:
