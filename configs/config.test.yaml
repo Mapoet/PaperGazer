@@ -1,0 +1,53 @@
+# PaperGazer 测试配置文件
+# 用于实际 API 测试
+
+# 联系邮箱（用于 Crossref/Unpaywall API 礼貌池）
+mailto: "mapoet.niphy@gmail.com"
+
+# arXiv 配置（测试时使用较小值）
+arxiv:
+  categories:
+    - "eess.SP"
+    - "physics.space-ph"
+  max_results: 50  # 增加结果数以便测试
+  delay_seconds: 3
+
+# CNS 期刊配置
+cns:
+  issn:
+    nature:
+      - "0028-0836"           # print
+      - "1476-4687"           # online
+    science:
+      - "0036-8075"           # print
+      - "1095-9203"           # online
+    cell:
+      - "0092-8674"           # print
+      - "1097-4172"           # online
+
+# 存储配置
+store:
+  root: "./data/test"
+  db_path: "./data/test/test.db"
+  papers_dir: "./data/test/papers"
+
+# 调度配置
+schedule:
+  enabled: false
+  timezone: "UTC"
+  hour: 0
+  minute: 0
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "text"
+  file: "./data/test/test.log"
+
+# 重试配置
+retry:
+  max_attempts: 3
+  initial_delay: 1.0
+  max_delay: 60.0
+  exponential_base: 2.0
+

@@ -43,12 +43,33 @@ pip install -r requirements.txt
 
 ### 配置
 
+#### 1. 环境变量（推荐）
+
+创建 `.env` 文件并设置邮箱：
+
+```bash
+cp .env.example .env
+# 编辑 .env，设置 MAILTO=your-email@domain.com
+```
+
+或者直接设置环境变量：
+
+```bash
+export MAILTO=your-email@domain.com
+```
+
+**注意**: Unpaywall API 要求使用真实邮箱地址，不能使用 `test@example.com`。
+
+#### 2. 配置文件
+
 复制并编辑配置文件：
 
 ```bash
 cp configs/config.yaml.example configs/config.yaml
-# 编辑 config.yaml，设置邮箱、arXiv 分类等
+# 编辑 config.yaml，设置 arXiv 分类等
 ```
+
+**优先级**: 环境变量 > 配置文件
 
 ### 使用
 

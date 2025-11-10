@@ -120,31 +120,52 @@ PaperGazer/
 
 ## 下一步开发计划
 
-### Phase 1: 基础框架实现（优先级：高）
+### Phase 1: 基础框架实现（优先级：高）✅ **已完成**
 
-1. **数据源模块实现**
-   - [ ] `sources/arxiv.py`：arXiv API 封装
-   - [ ] `sources/crossref.py`：Crossref API 封装
-   - [ ] `sources/unpaywall.py`：Unpaywall API 封装
-   - [ ] `sources/europe_pmc.py`：Europe PMC API 封装
+1. **数据源模块实现** ✅
+   - [x] `sources/arxiv.py`：arXiv API 封装
+   - [x] `sources/crossref.py`：Crossref API 封装
+   - [x] `sources/unpaywall.py`：Unpaywall API 封装
+   - [x] `sources/europe_pmc.py`：Europe PMC API 封装
 
-2. **存储模块实现**
-   - [ ] `store/db.py`：SQLAlchemy 模型定义与数据库操作
-   - [ ] `store/files.py`：文件存储管理
+2. **存储模块实现** ✅
+   - [x] `store/db.py`：SQLAlchemy 模型定义与数据库操作
+   - [x] `store/files.py`：文件存储管理
 
-3. **核心逻辑实现**
-   - [ ] `core/ingest.py`：每日巡检 Pipeline
-   - [ ] `core/fetch.py`：按需抓取 Pipeline
+3. **核心逻辑实现** ✅
+   - [x] `core/ingest.py`：每日巡检 Pipeline
+   - [x] `core/fetch.py`：按需抓取 Pipeline
 
-4. **CLI 接口实现**
-   - [ ] `cli.py`：Typer 命令行接口
+4. **CLI 接口实现** ✅
+   - [x] `cli.py`：Typer 命令行接口
 
-### Phase 2: 测试与优化（优先级：中）
+5. **配置管理模块** ✅
+   - [x] `config.py`：pydantic-settings 配置管理
+   - [x] `models.py`：数据模型定义
+   - [x] `utils.py`：工具函数（日志配置）
 
-- [ ] 单元测试（各模块）
-- [ ] 集成测试（完整 Pipeline）
-- [ ] 错误处理完善
-- [ ] 性能优化
+**详细完成报告**：参见 `docs/PHASE1_COMPLETION.md`
+
+### Phase 2: 测试与优化（优先级：中）✅ **已完成**
+
+- [x] 单元测试（各模块）
+  - [x] 数据源模块测试（test_sources/）：4 个测试文件
+  - [x] 存储模块测试（test_store/）：2 个测试文件
+  - [x] 核心逻辑模块测试（test_core/）：2 个测试文件
+- [x] 集成测试（完整 Pipeline）：test_integration.py
+- [x] 错误处理完善
+  - [x] 自定义异常类体系（papergazer/exceptions.py）
+  - [x] 改进错误处理和日志记录
+- [x] 性能优化
+  - [x] 批量数据库操作（batch_size=50）
+  - [x] 性能优化模块（papergazer/core/performance.py）
+
+**详细完成报告**：参见 `docs/PHASE2_COMPLETION.md`
+
+**测试统计**：
+- 测试文件数：8 个
+- 测试用例数：41 个
+- 测试覆盖：数据源、存储、核心逻辑、集成测试
 
 ### Phase 3: 文档与部署（优先级：低）
 
