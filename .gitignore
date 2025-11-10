@@ -46,6 +46,8 @@ data/
 
 # Configuration (may contain sensitive info)
 config.local.yaml
+config.test.yaml
+config.yaml
 .env
 .env.local
 

@@ -43,33 +43,23 @@ pip install -r requirements.txt
 
 ### 配置
 
-#### 1. 环境变量（推荐）
-
-创建 `.env` 文件并设置邮箱：
-
-```bash
-cp .env.example .env
-# 编辑 .env，设置 MAILTO=your-email@domain.com
-```
-
-或者直接设置环境变量：
-
-```bash
-export MAILTO=your-email@domain.com
-```
-
-**注意**: Unpaywall API 要求使用真实邮箱地址，不能使用 `test@example.com`。
-
-#### 2. 配置文件
-
 复制并编辑配置文件：
 
 ```bash
 cp configs/config.yaml.example configs/config.yaml
-# 编辑 config.yaml，设置 arXiv 分类等
+# 编辑 config.yaml，设置邮箱、arXiv 分类等
 ```
 
-**优先级**: 环境变量 > 配置文件
+**重要配置项**：
+- `mailto`: 联系邮箱（用于 Crossref/Unpaywall API，必须使用真实邮箱，不能使用 `test@example.com`）
+- `arxiv.categories`: 关注的 arXiv 分类列表
+- `store.db_path`: 数据库文件路径
+- `store.papers_dir`: 论文文件存储目录
+
+**注意**: 
+- 配置文件 `config.yaml` 已加入 `.gitignore`，不会被提交到版本控制
+- 测试时可以使用 `configs/config.test.yaml`（同样已加入 `.gitignore`）
+- 参考 `configs/config.yaml.example` 了解所有可配置项
 
 ### 使用
 

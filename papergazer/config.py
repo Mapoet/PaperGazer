@@ -1,9 +1,8 @@
 """
 配置管理模块：使用 pydantic-settings 加载配置
-支持从环境变量读取敏感信息（邮箱、API key等）
+所有配置从 YAML 文件读取
 """
 
-import os
 import yaml
 from pathlib import Path
 from typing import List, Optional
@@ -74,20 +73,18 @@ class Settings(BaseSettings):
     """应用配置"""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
+        # 不再使用 .env 文件，所有配置从 YAML 文件读取
         case_sensitive=False,
-        env_prefix="PAPERGAZER_",  # 环境变量前缀
     )
 
     mailto: str = Field(
         default="",
-        description="联系邮箱（用于 Crossref/Unpaywall API），可从环境变量 PAPERGAZER_MAILTO 读取",
+        description="联系邮箱（用于 Crossref/Unpaywall API），从 YAML 配置文件读取",
     )
     # 预留API key字段（如果未来需要）
     api_key: Optional[str] = Field(
         default=None,
-        description="API密钥（如果未来需要），可从环境变量 PAPERGAZER_API_KEY 读取",
+        description="API密钥（如果未来需要），从 YAML 配置文件读取",
     )
     arxiv: ArxivConfig = Field(default_factory=ArxivConfig)
     cns: CNSConfig = Field(default_factory=CNSConfig)
@@ -100,13 +97,17 @@ class Settings(BaseSettings):
 def load_config(config_path: str | Path | None = None) -> Settings:
     """
     加载配置文件
-    优先从环境变量读取敏感信息（邮箱、API key等）
+    所有配置从 YAML 文件读取
 
     Args:
         config_path: 配置文件路径，如果为 None 则使用默认路径
 
     Returns:
         Settings 实例
+
+    Raises:
+        FileNotFoundError: 配置文件不存在
+        ValueError: 邮箱未设置
     """
     if config_path is None:
         config_path = Path("configs/config.yaml")
@@ -114,37 +115,24 @@ def load_config(config_path: str | Path | None = None) -> Settings:
         config_path = Path(config_path)
 
     if not config_path.exists():
-        raise FileNotFoundError(f"配置文件不存在: {config_path}")
+        raise FileNotFoundError(
+            f"配置文件不存在: {config_path}\n"
+            f"请复制 configs/config.yaml.example 为 {config_path} 并修改相应配置"
+        )
 
     # 手动加载 YAML 文件
     with open(config_path, "r", encoding="utf-8") as f:
         config_data = yaml.safe_load(f) or {}
 
-    # 优先从环境变量读取敏感信息（环境变量优先级最高）
-    # 支持两种环境变量格式：
-    # 1. PAPERGAZER_MAILTO (带前缀，pydantic-settings自动处理)
-    # 2. MAILTO (不带前缀，手动处理)
-    mailto_from_env = os.getenv("MAILTO") or os.getenv("PAPERGAZER_MAILTO")
-    
-    # API key（如果未来需要）
-    api_key_from_env = os.getenv("API_KEY") or os.getenv("PAPERGAZER_API_KEY")
-
-    # 创建配置实例（pydantic-settings会自动从.env文件读取）
+    # 创建配置实例（所有配置从 YAML 文件读取）
     settings = Settings(**config_data)
-    
-    # 环境变量优先级最高，覆盖配置文件中的值
-    if mailto_from_env:
-        settings.mailto = mailto_from_env
-    
-    if api_key_from_env:
-        settings.api_key = api_key_from_env
 
     # 验证邮箱是否设置
     if not settings.mailto:
         raise ValueError(
-            "邮箱未设置！请通过以下方式之一设置：\n"
-            "1. 在配置文件中设置 mailto\n"
-            "2. 设置环境变量 MAILTO 或 PAPERGAZER_MAILTO"
+            "邮箱未设置！请在配置文件中设置 mailto 字段。\n"
+            f"配置文件路径: {config_path}\n"
+            "参考示例: configs/config.yaml.example"
         )
 
     return settings
