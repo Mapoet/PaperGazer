@@ -128,6 +128,11 @@ async def ingest_arxiv(
         if not ignore_checkpoint:
             if max_updated_time > last_checkpoint:
                 new_checkpoint = max_updated_time
+            elif max_updated_time == last_checkpoint and count > 0:
+                # 如果最大更新时间等于检查点但处理了论文，将检查点稍微后移（加1秒）
+                # 这样可以确保下次查询时不会重复处理这些论文
+                new_checkpoint = max_updated_time + timedelta(seconds=1)
+                logger.debug(f"最大更新时间等于检查点但处理了 {count} 条论文，检查点后移1秒")
             else:
                 # 如果没有查询到更新的论文，保持原检查点不变
                 new_checkpoint = last_checkpoint

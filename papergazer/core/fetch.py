@@ -61,13 +61,14 @@ def normalize_identifier(identifier: str) -> tuple[str, str]:
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-async def download_file(url: str, timeout: float = 60.0) -> bytes:
+async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int = 5) -> bytes:
     """
     下载文件
 
     Args:
         url: 文件 URL
         timeout: 超时时间（秒）
+        max_redirect_depth: 最大重定向深度（防止无限循环）
 
     Returns:
         文件内容（bytes）
@@ -81,26 +82,33 @@ async def download_file(url: str, timeout: float = 60.0) -> bytes:
             follow_redirects=True,  # 明确启用自动跟随重定向
             max_redirects=10,  # 允许最多 10 次重定向
         ) as client:
-            response = await client.get(url)
+            response = await client.get(url, follow_redirects=True)
             
-            # 如果最终响应仍然是重定向状态码，说明重定向链没有成功完成
+            # 如果最终响应仍然是重定向状态码，说明重定向链没有成功完成，需要手动处理
             if response.status_code in (301, 302, 303, 307, 308):
+                if max_redirect_depth <= 0:
+                    raise FetchError(f"重定向深度超过限制: {url}")
+                
                 redirect_location = response.headers.get("Location")
-                if redirect_location:
-                    # 如果是相对路径，构建完整 URL
-                    if redirect_location.startswith("/"):
-                        from urllib.parse import urljoin
-                        redirect_url = urljoin(url, redirect_location)
-                    else:
-                        redirect_url = redirect_location
-                    
-                    logger.debug(f"手动跟随重定向: {url} -> {redirect_url}")
-                    # 手动跟随重定向
-                    redirect_response = await client.get(redirect_url)
-                    redirect_response.raise_for_status()
-                    return redirect_response.content
-                else:
+                if not redirect_location:
                     raise FetchError(f"重定向响应但缺少 Location 头: {url}")
+                
+                # 构建完整的重定向 URL
+                from urllib.parse import urljoin, urlparse
+                if redirect_location.startswith("/"):
+                    # 相对路径，使用原始 URL 的 scheme 和 netloc
+                    parsed = urlparse(url)
+                    redirect_url = f"{parsed.scheme}://{parsed.netloc}{redirect_location}"
+                elif redirect_location.startswith("http://") or redirect_location.startswith("https://"):
+                    # 绝对 URL
+                    redirect_url = redirect_location
+                else:
+                    # 相对路径（相对于当前路径）
+                    redirect_url = urljoin(url, redirect_location)
+                
+                logger.info(f"检测到重定向 {response.status_code}: {url} -> {redirect_url}")
+                # 手动跟随重定向，递归调用（但限制递归深度）
+                return await download_file(redirect_url, timeout, max_redirect_depth - 1)
             
             response.raise_for_status()
             return response.content
