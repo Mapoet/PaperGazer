@@ -15,12 +15,20 @@ from papergazer.store.db import get_session, get_last_checkpoint, update_checkpo
 logger = logging.getLogger(__name__)
 
 
-async def ingest_arxiv(config: Settings) -> int:
+async def ingest_arxiv(
+    config: Settings,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    ignore_checkpoint: bool = False,
+) -> int:
     """
     巡检 arXiv
 
     Args:
         config: 应用配置
+        since: 起始时间（可选，如果指定则忽略检查点）
+        until: 结束时间（可选，默认为当前时间）
+        ignore_checkpoint: 是否忽略检查点过滤（当指定时间范围时自动为 True）
 
     Returns:
         新增/更新的论文数量
@@ -29,17 +37,30 @@ async def ingest_arxiv(config: Settings) -> int:
 
     session = get_session()
     try:
-        # 获取上次检查点
-        last_checkpoint = get_last_checkpoint(session, "arxiv")
-        if last_checkpoint:
-            # 确保 checkpoint 有时区信息（如果从数据库读取的是 naive datetime）
-            if last_checkpoint.tzinfo is None:
-                last_checkpoint = last_checkpoint.replace(tzinfo=timezone.utc)
-            logger.info(f"上次检查点: {last_checkpoint}")
+        # 如果指定了时间范围，忽略检查点过滤
+        if since is not None or ignore_checkpoint:
+            if since is not None:
+                if since.tzinfo is None:
+                    since = since.replace(tzinfo=timezone.utc)
+                logger.info(f"手动指定起始时间: {since}，忽略检查点过滤")
+            else:
+                # 如果没有指定 since，使用 7 天前作为默认值
+                since = datetime.now(timezone.utc) - timedelta(days=7)
+                logger.info(f"忽略检查点，使用默认起始时间: {since}")
+            last_checkpoint = since
+            ignore_checkpoint = True
         else:
-            # 如果没有检查点，使用 7 天前作为默认值
-            last_checkpoint = datetime.now(timezone.utc) - timedelta(days=7)
-            logger.info(f"无历史检查点，使用默认值: {last_checkpoint}")
+            # 获取上次检查点
+            last_checkpoint = get_last_checkpoint(session, "arxiv")
+            if last_checkpoint:
+                # 确保 checkpoint 有时区信息（如果从数据库读取的是 naive datetime）
+                if last_checkpoint.tzinfo is None:
+                    last_checkpoint = last_checkpoint.replace(tzinfo=timezone.utc)
+                logger.info(f"上次检查点: {last_checkpoint}")
+            else:
+                # 如果没有检查点，使用 7 天前作为默认值
+                last_checkpoint = datetime.now(timezone.utc) - timedelta(days=7)
+                logger.info(f"无历史检查点，使用默认值: {last_checkpoint}")
 
         # 查询 arXiv（批量处理）
         count = 0
@@ -64,12 +85,23 @@ async def ingest_arxiv(config: Settings) -> int:
             if min_updated_time is None or entry.updated < min_updated_time:
                 min_updated_time = entry.updated
             
-            # 过滤：只处理更新日期晚于检查点的条目
-            if entry.updated < last_checkpoint:
+            # 过滤：如果未忽略检查点，只处理更新日期晚于检查点的条目
+            # 注意：等于检查点的论文应该被视为已经处理过的，所以使用 <=
+            if not ignore_checkpoint and entry.updated <= last_checkpoint:
                 filtered_count += 1
                 if filtered_count <= 3:  # 只记录前3个被过滤的条目，避免日志过多
                     logger.debug(f"过滤条目 {entry.arxiv_id}: updated={entry.updated}, checkpoint={last_checkpoint}")
                 continue
+            
+            # 如果指定了 until，过滤掉超过结束时间的条目
+            if until is not None:
+                if until.tzinfo is None:
+                    until = until.replace(tzinfo=timezone.utc)
+                if entry.updated > until:
+                    filtered_count += 1
+                    if filtered_count <= 3:
+                        logger.debug(f"过滤条目 {entry.arxiv_id}: updated={entry.updated} 超过结束时间 {until}")
+                    continue
 
             # 转换为标准化元数据
             metadata = entry.to_metadata()
@@ -91,21 +123,24 @@ async def ingest_arxiv(config: Settings) -> int:
             session.commit()
             logger.debug(f"已处理 {count} 条 arXiv 记录（最终提交）")
 
-        # 更新检查点：使用查询到的最大更新时间，而不是当前时间
-        # 这样可以确保下次查询时能获取到所有新论文
-        if max_updated_time > last_checkpoint:
-            new_checkpoint = max_updated_time
+        # 更新检查点：如果忽略了检查点（手动指定时间范围），不更新检查点
+        # 否则使用查询到的最大更新时间，而不是当前时间
+        if not ignore_checkpoint:
+            if max_updated_time > last_checkpoint:
+                new_checkpoint = max_updated_time
+            else:
+                # 如果没有查询到更新的论文，保持原检查点不变
+                new_checkpoint = last_checkpoint
+            
+            update_checkpoint(session, "arxiv", new_checkpoint, count)
+            session.commit()
+            logger.info(f"检查点更新: {last_checkpoint} -> {new_checkpoint}")
         else:
-            # 如果没有查询到更新的论文，保持原检查点不变
-            new_checkpoint = last_checkpoint
-        
-        update_checkpoint(session, "arxiv", new_checkpoint, count)
-        session.commit()
+            logger.info(f"手动指定时间范围，不更新检查点（保持: {get_last_checkpoint(session, 'arxiv')}）")
 
         logger.info(f"arXiv 巡检完成，获取 {total_fetched} 条，过滤 {filtered_count} 条，处理 {count} 条记录")
         if total_fetched > 0:
             logger.info(f"查询到的论文更新时间范围: {min_updated_time} ~ {max_updated_time}")
-        logger.info(f"检查点更新: {last_checkpoint} -> {new_checkpoint}")
         
         # 如果所有论文都被过滤，给出提示
         if total_fetched > 0 and filtered_count == total_fetched:
@@ -132,13 +167,21 @@ async def ingest_arxiv(config: Settings) -> int:
         session.close()
 
 
-async def ingest_crossref(config: Settings) -> int:
+async def ingest_crossref(
+    config: Settings,
+    since: date | datetime | None = None,
+    until: date | datetime | None = None,
+    ignore_checkpoint: bool = False,
+) -> int:
     """
     巡检 Crossref（期刊）
     使用出版时间（publication date）进行增量查询
 
     Args:
         config: 应用配置
+        since: 起始日期（可选，如果指定则忽略检查点）
+        until: 结束日期（可选，默认为当前日期）
+        ignore_checkpoint: 是否忽略检查点过滤（当指定时间范围时自动为 True）
 
     Returns:
         新增/更新的论文数量
@@ -147,19 +190,43 @@ async def ingest_crossref(config: Settings) -> int:
 
     session = get_session()
     try:
-        # 获取上次检查点（出版时间）
-        last_checkpoint = get_last_checkpoint(session, "crossref")
-        if last_checkpoint:
-            logger.info(f"上次检查点（出版时间）: {last_checkpoint}")
-            # 使用检查点前1-2天作为起始日期，留重叠以防出版社回填/修订
-            since_date = (last_checkpoint - timedelta(days=2)).date()
+        # 如果指定了时间范围，忽略检查点过滤
+        if since is not None or ignore_checkpoint:
+            if since is not None:
+                # 转换为 date 类型
+                if isinstance(since, datetime):
+                    since_date = since.date()
+                else:
+                    since_date = since
+                logger.info(f"手动指定起始日期: {since_date}，忽略检查点过滤")
+            else:
+                # 如果没有指定 since，使用 7 天前作为默认值
+                since_date = (datetime.now(timezone.utc) - timedelta(days=7)).date()
+                logger.info(f"忽略检查点，使用默认起始日期: {since_date}")
+            ignore_checkpoint = True
         else:
-            # 如果没有检查点，使用 7 天前作为默认值
-            since_date = (datetime.now(timezone.utc) - timedelta(days=7)).date()
-            logger.info(f"无历史检查点，使用默认值: {since_date}")
+            # 获取上次检查点（出版时间）
+            last_checkpoint = get_last_checkpoint(session, "crossref")
+            if last_checkpoint:
+                logger.info(f"上次检查点（出版时间）: {last_checkpoint}")
+                # 使用检查点前1-2天作为起始日期，留重叠以防出版社回填/修订
+                if isinstance(last_checkpoint, datetime):
+                    since_date = (last_checkpoint - timedelta(days=2)).date()
+                else:
+                    since_date = last_checkpoint - timedelta(days=2)
+            else:
+                # 如果没有检查点，使用 7 天前作为默认值
+                since_date = (datetime.now(timezone.utc) - timedelta(days=7)).date()
+                logger.info(f"无历史检查点，使用默认值: {since_date}")
 
-        # 结束日期：当前日期
-        until_date = datetime.now(timezone.utc).date()
+        # 结束日期
+        if until is not None:
+            if isinstance(until, datetime):
+                until_date = until.date()
+            else:
+                until_date = until
+        else:
+            until_date = datetime.now(timezone.utc).date()
 
         # 收集所有 ISSN
         all_issns: list[str] = []
@@ -212,18 +279,21 @@ async def ingest_crossref(config: Settings) -> int:
             session.commit()
             logger.debug(f"已处理 {count} 条 Crossref 记录（最终提交）")
 
-        # 更新检查点：使用max(issued)作为出版时间索引
-        if max_issued_date:
-            # 转换为datetime（使用UTC时区）
-            new_checkpoint = datetime.combine(max_issued_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-            logger.info(f"更新检查点（最大出版时间）: {max_issued_date}")
-        else:
-            # 如果没有获取到issued日期，使用until_date
-            new_checkpoint = datetime.combine(until_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-            logger.warning("未获取到issued日期，使用结束日期作为检查点")
+        # 更新检查点：如果忽略了检查点（手动指定时间范围），不更新检查点
+        if not ignore_checkpoint:
+            if max_issued_date:
+                # 转换为datetime（使用UTC时区）
+                new_checkpoint = datetime.combine(max_issued_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+                logger.info(f"更新检查点（最大出版时间）: {max_issued_date}")
+            else:
+                # 如果没有获取到issued日期，使用until_date
+                new_checkpoint = datetime.combine(until_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+                logger.warning("未获取到issued日期，使用结束日期作为检查点")
 
-        update_checkpoint(session, "crossref", new_checkpoint, count)
-        session.commit()
+            update_checkpoint(session, "crossref", new_checkpoint, count)
+            session.commit()
+        else:
+            logger.info(f"手动指定时间范围，不更新检查点（保持: {get_last_checkpoint(session, 'crossref')}）")
 
         logger.info(f"Crossref 巡检完成，处理 {count} 条记录")
         return count

@@ -7,6 +7,7 @@
 import argparse
 import asyncio
 import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # 添加项目根目录到路径
@@ -57,6 +58,15 @@ async def main():
 
   # 下载最近7天的论文，最多100篇
   python scripts/daily_ingest.py --download --download-days 7 --download-limit 100
+
+  # 查询最近30天的论文（忽略检查点，更新已有论文）
+  python scripts/daily_ingest.py --days 30
+
+  # 查询指定日期范围的论文（忽略检查点）
+  python scripts/daily_ingest.py --since 2025-01-01 --until 2025-01-31
+
+  # 查询指定时间范围的论文（忽略检查点）
+  python scripts/daily_ingest.py --since 2025-01-01T00:00:00 --until 2025-01-31T23:59:59
         """,
     )
 
@@ -91,8 +101,61 @@ async def main():
         type=int,
         help="限制下载数量（每个来源）。如果指定此参数，会自动启用 --download",
     )
+    parser.add_argument(
+        "--since",
+        type=str,
+        help="起始时间/日期（格式: YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS），如果指定则忽略检查点过滤",
+    )
+    parser.add_argument(
+        "--until",
+        type=str,
+        help="结束时间/日期（格式: YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS），默认为当前时间",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        help="查询最近 N 天的论文（等同于 --since 为 N 天前，会忽略检查点过滤）",
+    )
 
     args = parser.parse_args()
+    
+    # 解析时间范围参数
+    since = None
+    until = None
+    
+    if args.days is not None:
+        # 如果指定了 --days，计算起始时间
+        since = datetime.now(timezone.utc) - timedelta(days=args.days)
+        console.print(f"[yellow]指定了 --days {args.days}，将忽略检查点过滤，查询从 {since.date()} 开始的论文[/yellow]")
+    elif args.since is not None:
+        # 解析 --since 参数
+        try:
+            if "T" in args.since or " " in args.since:
+                since = datetime.fromisoformat(args.since.replace(" ", "T"))
+            else:
+                since = datetime.combine(date.fromisoformat(args.since), datetime.min.time())
+            if since.tzinfo is None:
+                since = since.replace(tzinfo=timezone.utc)
+            console.print(f"[yellow]指定了起始时间: {since}，将忽略检查点过滤[/yellow]")
+        except ValueError as e:
+            console.print(f"[bold red]错误: 无法解析 --since 参数: {e}[/bold red]")
+            console.print("格式应为: YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS")
+            return
+    
+    if args.until is not None:
+        # 解析 --until 参数
+        try:
+            if "T" in args.until or " " in args.until:
+                until = datetime.fromisoformat(args.until.replace(" ", "T"))
+            else:
+                until = datetime.combine(date.fromisoformat(args.until), datetime.max.time())
+            if until.tzinfo is None:
+                until = until.replace(tzinfo=timezone.utc)
+            console.print(f"[yellow]指定了结束时间: {until}[/yellow]")
+        except ValueError as e:
+            console.print(f"[bold red]错误: 无法解析 --until 参数: {e}[/bold red]")
+            console.print("格式应为: YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS")
+            return
 
     # 如果指定了下载相关参数但没有 --download，自动启用下载
     if not args.download and (args.download_days is not None or args.download_limit is not None 
@@ -123,9 +186,9 @@ async def main():
 
         # 执行巡检
         if sources:
-            results = await daily_ingest_sources(config, sources)
+            results = await daily_ingest_sources(config, sources, since=since, until=until)
         else:
-            results = await daily_ingest_all(config)
+            results = await daily_ingest_all(config, since=since, until=until)
 
         # 显示结果
         table = Table(title="每日巡检结果")
