@@ -19,6 +19,7 @@ PaperGazer/
 │   │   ├── __init__.py     # 模块导出
 │   │   ├── arxiv.py        # arXiv API 封装
 │   │   ├── crossref.py     # Crossref API 封装
+│   │   ├── openalex.py     # OpenAlex API 封装
 │   │   ├── unpaywall.py    # Unpaywall API 封装
 │   │   └── europe_pmc.py   # Europe PMC API 封装
 │   │
@@ -30,7 +31,18 @@ PaperGazer/
 │   └── core/               # 核心逻辑模块
 │       ├── __init__.py     # 模块导出
 │       ├── ingest.py       # 每日巡检 Pipeline
-│       └── fetch.py        # 按需抓取 Pipeline
+│       ├── fetch.py        # 按需抓取 Pipeline
+│       ├── fulltext.py     # GROBID/文本 → TEI
+│       ├── figures.py      # 图表抽取
+│       ├── identity_enrich.py  # ORCID/ROR 标准化
+│       └── embeddings.py   # 语义向量生成
+│
+│   ├── analytics/          # 分析模块
+│   │   ├── __init__.py
+│   │   ├── citation.py     # 引用网络 / 合作网络
+│   │   ├── concepts.py     # 概念热度
+│   │   ├── oa.py           # OA / FAIR 指标
+│   │   └── topics.py       # 主题趋势分析
 │
 ├── configs/                # 配置文件目录
 │   └── config.yaml.example # 配置文件示例（需复制为 config.yaml）
@@ -56,7 +68,10 @@ PaperGazer/
 │   └── PROJECT_STRUCTURE.md # 本文件
 │
 └── scripts/                # 工具脚本目录
-    └── (待添加)
+    ├── daily_ingest.py     # 巡检 + 元数据 + 下载 + 后处理
+    ├── analyze_papers.py   # 综合分析入口
+    ├── query_papers.py     # 查询示例
+    └── export_abstracts.py # 摘要导出
 ```
 
 ## 模块说明
@@ -98,6 +113,10 @@ PaperGazer/
 |------|------|
 | `ingest.py` | 每日巡检 Pipeline：arXiv + Crossref 增量抓取 → 入库 |
 | `fetch.py` | 按需抓取 Pipeline：优先级链（arXiv → Unpaywall → Europe PMC → Crossref） |
+| `fulltext.py` | 调用 GROBID 或本地文本生成 TEI |
+| `figures.py` | 从 TEI / PDF 抽取图表结构 |
+| `identity_enrich.py` | 对接 ORCID / ROR，写入标准化身份表 |
+| `embeddings.py` | 基于 sentence-transformers 生成语义向量 |
 
 ### papergazer.cli
 
@@ -116,11 +135,13 @@ PaperGazer/
 主要配置项：
 - `mailto`：联系邮箱（用于 API 礼貌池）
 - `arxiv.categories`：关注的 arXiv 分类
-- `cns.issn`：CNS 期刊 ISSN 列表
+- `journals.issn`：期刊 ISSN 列表（print/online）
 - `store.root`：数据存储根目录
 - `schedule`：定时任务配置
 - `logging`：日志配置
 - `retry`：重试配置
+- `grobid` / `figures` / `identity`：全文、图表、身份识别流程开关
+- `embeddings`：语义向量模型、字段、批次大小、截断长度
 
 ## 数据存储规范
 

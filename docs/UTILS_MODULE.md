@@ -139,6 +139,11 @@ python scripts/daily_ingest.py arxiv crossref
 ./scripts/daily_ingest.sh arxiv crossref
 ```
 
+> **提示**  
+> 巡检脚本在完成下载与全文处理后，会调用 `papergazer/core/embeddings.generate_embeddings_for_papers`
+> 生成语义向量（受 `embeddings.enabled` 配置控制）。如需暂时跳过，可使用
+> `--skip-embeddings`，或在配置中关闭该功能。
+
 ## 定时任务设置
 
 ### 使用 cron

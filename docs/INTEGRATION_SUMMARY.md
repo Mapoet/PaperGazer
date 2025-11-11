@@ -84,6 +84,9 @@ python scripts/daily_ingest.py arxiv crossref
 ./scripts/daily_ingest.sh arxiv crossref
 ```
 
+> 巡检脚本在抓取与下载完成后，会自动执行 TEI 生成、图表抽取、引用网络构建以及语义向量写入；
+> 可通过 `--skip-tei` / `--skip-figures` / `--skip-citations` / `--skip-embeddings` 精细控制。
+
 ## 定时任务设置
 
 ### Cron 示例
@@ -130,5 +133,6 @@ scripts/
 2. **缓存机制**: 添加查询结果缓存
 3. **导出功能**: 支持导出分析结果为 CSV/JSON
 4. **可视化**: 添加图表可视化功能
-5. **Web界面**: 考虑开发 Web 界面
+5. **向量检索**: 基于 `embeddings` 表实现相似论文检索接口
+6. **Web界面**: 考虑开发 Web 界面
 

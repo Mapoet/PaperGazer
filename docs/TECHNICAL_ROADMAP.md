@@ -26,10 +26,9 @@ PaperGazer 是一个自动化论文监控与抓取系统，旨在实现：
          │                       │
     ┌────┴───────────────────────┴────┐
     │      Data Sources Layer          │
-    ├──────────┬──────────┬───────────┤
-    │  arXiv   │ Crossref │ Unpaywall │
-    │ EuropePMC│          │           │
-    └──────────┴──────────┴───────────┘
+    ├──────────┬──────────┬───────────┬──────────┬────────────┤
+    │  arXiv   │ Crossref │ OpenAlex  │ Unpaywall│ Europe PMC │
+    └──────────┴──────────┴───────────┴──────────┴────────────┘
          │                       │
     ┌────┴───────────────────────┴────┐
     │      Storage Layer               │
@@ -45,7 +44,8 @@ PaperGazer 是一个自动化论文监控与抓取系统，旨在实现：
 **职责**：封装各数据源的 API 调用与数据解析
 
 - `arxiv.py`：arXiv Atom API 查询与解析
-- `crossref.py`：Crossref REST API 增量拉取
+- `crossref.py`：Crossref REST API 增量拉取与引用信息
+- `openalex.py`：OpenAlex Works API（概念、引用、OA、host venue 等）
 - `unpaywall.py`：Unpaywall OA 状态查询
 - `europe_pmc.py`：Europe PMC 全文获取
 
@@ -95,19 +95,24 @@ CREATE TABLE runs (
     items_count INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- analytics / embeddings 等扩展表在运行时按需创建
 ```
+
+> 实际实现中，通过 `_ensure_schema` 逐步为 `items` 添加 TEI、图表、概念、OA 等列，
+> 并新增 `embeddings`、`analytics_concepts`、`analytics_oa`、`graphs_citation`、
+> `identities_author` / `identities_affiliation` 等表，以满足全文与分析的需要。
 
 #### 2.2.3 核心逻辑模块 (`core/`)
 
 **职责**：业务流程编排
 
-- `ingest.py`：每日巡检 Pipeline
-  - arXiv 分类查询 → 本地过滤 → 入库
-  - Crossref ISSN + 日期过滤 → 游标分页 → 入库
-- `fetch.py`：按需抓取 Pipeline
-  - 优先级：arXiv → Unpaywall → Europe PMC → Crossref 摘要
-  - 文件下载与存储
-  - 元数据回填
+- `ingest.py`：每日巡检 Pipeline（RunRecord 游标、时间分批）
+- `fetch.py`：按需抓取 Pipeline（arXiv → Unpaywall → Europe PMC → Crossref 摘要）
+- `fulltext.py`：调用 GROBID 生成 TEI / 包装文本
+- `figures.py`：抽取图表 JSON
+- `identity_enrich.py`：ORCID / ROR 标准化
+- `embeddings.py`：sentence-transformers 语义向量生成（写入 `embeddings` 表）
 
 #### 2.2.4 CLI 模块 (`cli.py`)
 
@@ -117,6 +122,15 @@ CREATE TABLE runs (
 - `fetch <identifier>`：按需抓取
 - `search --q <query>`：搜索论文
 - `export --since <date> --format <format>`：导出数据
+
+#### 2.2.5 分析模块 (`analytics/`)
+
+**职责**：对主库与扩展表进行统计分析，输出结构化指标。
+
+- `citation.py`：引用网络构建、PageRank/入度指标、机构合作网络
+- `concepts.py`：OpenAlex 概念热度统计
+- `oa.py`：OA/FAIR 指标监控
+- `topics.py`：按年/季度的主题趋势分析
 
 ## 3. 实施方案
 
