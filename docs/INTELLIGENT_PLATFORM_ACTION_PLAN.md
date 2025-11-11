@@ -74,28 +74,25 @@
 
 ### P2：分析能力建设（Weeks 7–12）
 
-#### 1. 语义向量与相似文献
-1. 下载 SPECTER/SPECTER2 模型或调用 API。  
-2. 开发 `scripts/generate_embeddings.py`：  
-   - 输入标题/摘要/TEI 段落 → 输出 768D 向量（存 `fulltext_embeddings` 表或向量库 Milvus/Faiss）。
-3. 实现 `services/similarity.py`：  
-   - 提供 `top_k_similar(paper_id)` 接口；缓存常用查询。
+#### 1. 语义向量与相似文献 ✅
+1. **已完成**：`papergazer/core/embeddings.generate_embeddings_for_papers` 支持基于标题/摘要/TEI 生成语义向量，写入 `embeddings` 表。  
+2. **脚本入口**：`scripts/generate_embeddings.py` 作为轻量包装，支持 `--model`、`--fields`、`--since-days` 等参数。  
+3. **后续可拓展**：基于生成的向量实现近邻检索接口（规划在 P3 阶段纳入 `services/similarity`）。
 
-#### 2. 主题演化
-1. 使用 BERTopic / LDA 对年度文献向量聚类。  
-2. 服务化 `analysis/topic_trends.py`：  
-   - 产出年度主题热度、关键词、代表文献列表。  
-   - 按 OpenAlex concepts 作为标签增强。
+#### 2. 主题演化 ✅
+1. **已完成**：`papergazer/analytics/topics.analyze_topic_trends` 基于 OpenAlex concepts 计算年/季度趋势，返回 Top-N 增长主题及完整时间序列。  
+2. **CLI 集成**：`scripts/analyze_papers.py` 新增 `topics` 分析类型，可配置时间粒度与统计跨度。  
+3. **后续建议**：结合语义向量做 BERTopic 聚类或主题突变检测（留待 P3/P4）。
 
-#### 3. 引用网络与合作网络
-1. 构建 `graphs_citation` 表（source,target,relation_type,weight）。  
-2. 使用 NetworkX/igraph 计算 PageRank、社区发现、桥接度。  
-3. 输出 `analysis/citation_network.py` 报告，生成机构/国家合作可视化。
+#### 3. 引用网络与合作网络 ✅
+1. **已完成**：在 `papergazer/analytics/citation` 中新增 `summarize_citation_network`（networkx PageRank / 入度指标）及 `analyze_collaboration_network`（基于 ROR/机构对组成合作边）。  
+2. **CLI 集成**：`scripts/analyze_papers.py` 新增 `citation`、`collaboration` 分析类型，输出富表格指标。  
+3. **后续建议**：结合 `AuthorIdentity` / `AffiliationIdentity` 扩展国家区域聚合与社区发现。
 
-#### 4. OA/FAIR 指标
-1. 定义指标：OA 占比、许可类型、延时 OA、数据/软件引用存在性。  
-2. 汇总写入 `analytics_metrics` 表，定期刷新。  
-3. 构建仪表盘（Metabase/Superset）展示核心统计。
+#### 4. OA/FAIR 指标 ✅
+1. **已完成**：`papergazer/analytics/oa.monitor_oa` 统计 OA 状态、许可分布、数据/代码链接并可持久化到 `analytics_oa`。  
+2. **CLI 集成**：`scripts/analyze_papers.py` 中 `oa` 分析类型支持窗口配置、持久化写入。  
+3. **后续建议**：基于指标输出 Superset/Metabase Dashboard，纳入 FAIR checklist 评分。
 
 ---
 

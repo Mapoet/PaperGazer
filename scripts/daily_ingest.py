@@ -28,6 +28,7 @@ from papergazer.utils import (
     setup_logging,
 )
 from papergazer.analytics.citation import build_citation_graph  # type: ignore[import]
+from papergazer.core.embeddings import generate_embeddings_for_papers  # type: ignore[import]
 from papergazer.core.figures import extract_figures_and_tables  # type: ignore[import]
 from papergazer.core.fulltext import generate_tei_for_papers  # type: ignore[import]
 from rich.console import Console
@@ -177,6 +178,11 @@ async def main():
         "--skip-citations",
         action="store_true",
         help="巡检后跳过引用网络构建",
+    )
+    parser.add_argument(
+        "--skip-embeddings",
+        action="store_true",
+        help="巡检后跳过语义向量生成",
     )
     parser.add_argument(
         "--post-limit",
@@ -548,6 +554,39 @@ async def main():
             citation_table.add_row("跳过论文", str(citation_stats["skipped"]))
             citation_table.add_row("dry_run", str(post_dry_run))
             console.print(citation_table)
+
+        if args.skip_embeddings:
+            console.print("[dim]跳过语义向量生成 (--skip-embeddings)[/dim]")
+        else:
+            if not config.embeddings.enabled:
+                console.print("[yellow]embeddings.enabled = false，跳过语义向量生成[/yellow]")
+            else:
+                console.print("\n[bold green]生成语义向量...[/bold green]")
+                try:
+                    embedding_stats = generate_embeddings_for_papers(
+                        config,
+                        model_name=config.embeddings.model,
+                        fields=config.embeddings.fields,
+                        batch_size=config.embeddings.batch_size,
+                        since_days=post_since_days,
+                        limit=post_limit,
+                        force=post_force,
+                        max_chars=config.embeddings.max_chars,
+                        dry_run=post_dry_run,
+                    )
+
+                    embedding_table = Table(title="语义向量结果")
+                    embedding_table.add_column("指标", style="cyan")
+                    embedding_table.add_column("数值", style="green", justify="right")
+                    embedding_table.add_row("候选论文数", str(embedding_stats["papers"]))
+                    embedding_table.add_row("已处理", str(embedding_stats["processed"]))
+                    embedding_table.add_row("成功写入", str(embedding_stats["embedded"]))
+                    embedding_table.add_row("跳过", str(embedding_stats["skipped"]))
+                    embedding_table.add_row("dry_run", str(embedding_stats["dry_run"]))
+                    embedding_table.add_row("模型", str(embedding_stats["model"]))
+                    console.print(embedding_table)
+                except RuntimeError as exc:
+                    console.print(f"[bold yellow]语义向量生成跳过：{exc}[/bold yellow]")
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")

@@ -20,8 +20,13 @@ from papergazer.utils import (
     get_papers_by_days,
 )
 from papergazer.utils import setup_logging
+from papergazer.analytics.citation import (  # type: ignore[import]
+    analyze_collaboration_network as analyze_collab_module,
+    summarize_citation_network as summarize_citation_module,
+)
 from papergazer.analytics.concepts import analyze_concepts as analyze_concepts_module  # type: ignore[import]
 from papergazer.analytics.oa import monitor_oa as monitor_oa_module  # type: ignore[import]
+from papergazer.analytics.topics import analyze_topic_trends as analyze_topics_module  # type: ignore[import]
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -31,7 +36,7 @@ console = Console()
 
 def create_parser() -> argparse.ArgumentParser:
     """创建命令行参数解析器
-    
+
     Returns:
         argparse.ArgumentParser: 配置好的参数解析器
     """
@@ -62,7 +67,17 @@ def create_parser() -> argparse.ArgumentParser:
         "analysis_types",
         type=str,
         nargs="+",
-        choices=["authors", "abstracts", "oa", "venues", "list", "concepts"],
+        choices=[
+            "authors",
+            "abstracts",
+            "oa",
+            "venues",
+            "list",
+            "concepts",
+            "topics",
+            "citation",
+            "collaboration",
+        ],
         help="指定要执行的一个或多个分析类型",
     )
 
@@ -144,6 +159,47 @@ def create_parser() -> argparse.ArgumentParser:
         help="OA 仪表盘的窗口大小（覆盖 --window-days）",
     )
 
+    parser.add_argument(
+        "--topics-granularity",
+        choices=["year", "quarter"],
+        default="year",
+        help="主题趋势时间粒度（year/quarter）",
+    )
+    parser.add_argument(
+        "--topics-since-years",
+        type=int,
+        default=3,
+        help="主题趋势统计跨度（单位：年）",
+    )
+    parser.add_argument(
+        "--citation-since-days",
+        type=int,
+        help="引用网络统计近 N 天产生的引用边",
+    )
+    parser.add_argument(
+        "--citation-top",
+        type=int,
+        default=10,
+        help="引用网络输出 Top-N 节点数量（默认 10）",
+    )
+    parser.add_argument(
+        "--collab-since-days",
+        type=int,
+        help="机构合作网络统计近 N 天新增论文",
+    )
+    parser.add_argument(
+        "--collab-min-weight",
+        type=int,
+        default=1,
+        help="机构合作最少出现次数（默认 1）",
+    )
+    parser.add_argument(
+        "--collab-top",
+        type=int,
+        default=20,
+        help="机构合作输出 Top-N 边数量（默认 20）",
+    )
+
     # 配置文件路径（可选参数）
     parser.add_argument(
         "-c",
@@ -176,19 +232,19 @@ def create_parser() -> argparse.ArgumentParser:
 
 def validate_args(args: argparse.Namespace) -> None:
     """验证参数有效性
-    
+
     Args:
         args: 解析后的参数
-        
+
     Raises:
         ValueError: 参数无效时抛出
     """
     if args.days <= 0:
         raise ValueError(f"天数必须为正整数，当前值: {args.days}")
-    
+
     if args.limit is not None and args.limit <= 0:
         raise ValueError(f"限制数量必须为正整数，当前值: {args.limit}")
-    
+
     if args.top <= 0:
         raise ValueError(f"Top N必须为正整数，当前值: {args.top}")
 
@@ -303,11 +359,7 @@ def main():
                     table.add_column("平均长度", style="blue")
 
                     for source, stats in result["source_stats"].items():
-                        avg_len = (
-                            stats["total_length"] / stats["with"]
-                            if stats["with"] > 0
-                            else 0
-                        )
+                        avg_len = stats["total_length"] / stats["with"] if stats["with"] > 0 else 0
                         table.add_row(
                             source.upper(),
                             str(stats["with"]),
@@ -327,7 +379,9 @@ def main():
                     dry_run=args.oa_dry_run,
                 )
 
-                table = Table(title=f"OA 指标：{oa_result['window_start'].date()} ~ {oa_result['window_end'].date()}")
+                table = Table(
+                    title=f"OA 指标：{oa_result['window_start'].date()} ~ {oa_result['window_end'].date()}"
+                )
                 table.add_column("指标", style="cyan")
                 table.add_column("数值", style="green", justify="right")
 
@@ -361,7 +415,9 @@ def main():
                 if oa_result.get("persisted"):
                     console.print("[green]已写入 analytics_oa 表。[/green]")
                 else:
-                    console.print(f"[cyan]persist={args.oa_persist}, dry_run={args.oa_dry_run}[/cyan]")
+                    console.print(
+                        f"[cyan]persist={args.oa_persist}, dry_run={args.oa_dry_run}[/cyan]"
+                    )
 
             elif analysis_type == "venues":
                 result = analyze_venues_by_days(days, sources, top_n=top_n)
@@ -406,7 +462,9 @@ def main():
                     doi = paper["doi"] or "无"
                     if len(doi) > 25:
                         doi = doi[:22] + "..."
-                    oa_status = "✅" if paper["is_oa"] else ("❌" if paper["is_oa"] is False else "?")
+                    oa_status = (
+                        "✅" if paper["is_oa"] else ("❌" if paper["is_oa"] is False else "?")
+                    )
                     has_abstract = "✓" if paper["has_abstract"] else "✗"
 
                     table.add_row(
@@ -439,9 +497,13 @@ def main():
 
                 concepts = concept_result.get("concepts", [])
                 if not concepts:
-                    console.print("[yellow]未解析到有效的概念信息，请确认已补齐 OpenAlex 元数据。[/yellow]")
+                    console.print(
+                        "[yellow]未解析到有效的概念信息，请确认已补齐 OpenAlex 元数据。[/yellow]"
+                    )
                 else:
-                    table = Table(title=f"概念热度：{concept_result['window_start'].date()} ~ {concept_result['window_end'].date()}")
+                    table = Table(
+                        title=f"概念热度：{concept_result['window_start'].date()} ~ {concept_result['window_end'].date()}"
+                    )
                     table.add_column("Rank", style="cyan", justify="right")
                     table.add_column("Concept", style="green")
                     table.add_column("Count", style="magenta", justify="right")
@@ -449,7 +511,9 @@ def main():
                     table.add_column("Level", style="blue", justify="right")
 
                     for idx, entry in enumerate(concepts, start=1):
-                        level_display = entry["concept_level"] if entry["concept_level"] is not None else "-"
+                        level_display = (
+                            entry["concept_level"] if entry["concept_level"] is not None else "-"
+                        )
                         table.add_row(
                             str(idx),
                             entry["concept_name"],
@@ -463,7 +527,92 @@ def main():
                 if concept_result.get("persisted"):
                     console.print("[green]已写入 analytics_concepts 表。[/green]")
                 else:
-                    console.print(f"[cyan]persist={args.concept_persist}, dry_run={args.concept_dry_run}[/cyan]")
+                    console.print(
+                        f"[cyan]persist={args.concept_persist}, dry_run={args.concept_dry_run}[/cyan]"
+                    )
+
+            elif analysis_type == "topics":
+                topic_result = analyze_topics_module(
+                    config,
+                    granularity=args.topics_granularity,
+                    since_years=args.topics_since_years,
+                    top=top_n,
+                    sources=sources,
+                )
+                concepts = topic_result.get("concepts", [])
+                if not concepts:
+                    console.print("[yellow]未找到满足条件的主题趋势数据。[/yellow]")
+                else:
+                    table = Table(
+                        title=f"主题趋势 Top {len(concepts)}（粒度：{topic_result['granularity']}）"
+                    )
+                    table.add_column("Concept", style="green")
+                    table.add_column("Latest", style="cyan")
+                    table.add_column("Prev", style="magenta")
+                    table.add_column("Growth", style="yellow", justify="right")
+                    for entry in concepts:
+                        table.add_row(
+                            entry["concept_name"],
+                            f"{entry['latest_period']} ({entry['latest_count']})",
+                            f"{entry['previous_period']} ({entry['previous_count']})",
+                            f"{entry['growth_rate']:.2f}",
+                        )
+                    console.print(table)
+                console.print(
+                    f"[cyan]统计论文数: {topic_result['papers']}，起始: {topic_result['since']}[/cyan]"
+                )
+
+            elif analysis_type == "citation":
+                citation_result = summarize_citation_module(
+                    config,
+                    since_days=args.citation_since_days,
+                    max_nodes=args.citation_top,
+                )
+
+                table = Table(title="引用网络 PageRank Top")
+                table.add_column("Rank", style="cyan", justify="right")
+                table.add_column("Node", style="yellow")
+                table.add_column("Score", style="green", justify="right")
+                for idx, entry in enumerate(citation_result["pagerank"], start=1):
+                    table.add_row(str(idx), entry["label"], f"{entry['score']:.4f}")
+                console.print(table)
+
+                indegree_table = Table(title="引用网络 In-degree Top")
+                indegree_table.add_column("Rank", style="cyan", justify="right")
+                indegree_table.add_column("Node", style="yellow")
+                indegree_table.add_column("Weight", style="green", justify="right")
+                for idx, entry in enumerate(citation_result["in_degree"], start=1):
+                    indegree_table.add_row(str(idx), entry["label"], f"{entry['score']:.2f}")
+                console.print(indegree_table)
+
+                console.print(
+                    f"[cyan]节点: {citation_result['nodes']}，边: {citation_result['edges']}，since={citation_result['since']}[/cyan]"
+                )
+
+            elif analysis_type == "collaboration":
+                collab_result = analyze_collab_module(
+                    config,
+                    since_days=args.collab_since_days,
+                    min_weight=args.collab_min_weight,
+                    top=args.collab_top,
+                )
+                edges = collab_result.get("edges", [])
+                if not edges:
+                    console.print("[yellow]未找到符合条件的合作边。[/yellow]")
+                else:
+                    table = Table(title=f"机构合作网络 Top {len(edges)}")
+                    table.add_column("Rank", style="cyan", justify="right")
+                    table.add_column("Source", style="green")
+                    table.add_column("Target", style="green")
+                    table.add_column("Weight", style="yellow", justify="right")
+                    for idx, entry in enumerate(edges, start=1):
+                        table.add_row(
+                            str(idx), entry["source"], entry["target"], str(entry["weight"])
+                        )
+                    console.print(table)
+                console.print(
+                    f"[cyan]统计论文数: {collab_result['papers']}，since={collab_result['since']}[/cyan]"
+                )
 
         return 0
 
@@ -478,4 +627,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

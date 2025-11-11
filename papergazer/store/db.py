@@ -232,6 +232,24 @@ class OAMetric(Base):
     metadata_json = Column(Text)
 
 
+class PaperEmbedding(Base):
+    """论文语义向量"""
+
+    __tablename__ = "embeddings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    paper_id = Column(Integer, index=True, nullable=False)
+    model_name = Column(String(255), index=True, nullable=False)
+    vector_json = Column(Text, nullable=False)
+    dimension = Column(Integer, nullable=False)
+    source_fields = Column(String(255))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    __table_args__ = (
+        UniqueConstraint("paper_id", "model_name", name="uq_embedding_paper_model"),
+    )
+
+
 # 全局变量
 _engine = None
 _SessionLocal = None

@@ -148,6 +148,22 @@ class IdentityConfig(BaseSettings):
     ror: RorConfig = Field(default_factory=RorConfig)
 
 
+class EmbeddingConfig(BaseSettings):
+    """语义向量配置"""
+
+    enabled: bool = Field(default=False, description="是否启用语义向量生成")
+    model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        description="sentence-transformers 模型名称",
+    )
+    fields: List[str] = Field(
+        default_factory=lambda: ["title", "abstract"],
+        description="拼接文本字段（title / abstract / tei）",
+    )
+    batch_size: int = Field(default=32, description="编码批次大小")
+    max_chars: int = Field(default=4096, description="单篇文本截断长度")
+
+
 class Settings(BaseSettings):
     """应用配置"""
 
@@ -174,6 +190,7 @@ class Settings(BaseSettings):
     retry: RetryConfig = Field(default_factory=RetryConfig)
     figures: FigureExtractionConfig = Field(default_factory=FigureExtractionConfig)
     identity: IdentityConfig = Field(default_factory=IdentityConfig)
+    embeddings: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
 
 
 def load_config(config_path: str | Path | None = None) -> Settings:

@@ -1,70 +1,40 @@
-[14 tools called]
+## P1 阶段执行状态（已完成）
 
-### P1 启动：全文批处理能力已就绪 ✅
+### 1. 全文批处理能力 ✅
+- `papergazer/core/fulltext.generate_tei_for_papers` 负责批量生成 TEI，并写回 `PaperItem.tei_path`。  
+- `papergazer/core/figures.extract_figures_and_tables` 从 TEI 中抽取图表结构，持久化到 `figures_json` / `tables_json`。  
+- 配置文件新增 `grobid.*` / `figures.*`，支持 dry-run、force、最大处理量等参数。
 
-本轮落地了 P1 阶段的首个关键任务——批量生成 TEI 全文的脚手架，具体包括：
+### 2. 外部元数据补全 ✅
+- `papergazer/utils/metadata` 统一封装 Crossref / OpenAlex / Unpaywall 增量抓取，RunRecord 持续保存游标与摘要。  
+- `scripts/daily_ingest.py` 内建 `--enrich-*` 参数，可结合巡检一次完成元数据补充。  
+- 数据库 `PaperItem` 增加 `crossref_json`、`openalex_json`、`references_json` 等字段，以结构化方式存储补全结果。
 
-1. **数据库扩展**
-   - `PaperItem` 新增 `tei_path` 字段，并在 `init_db` 中增加轻量级 schema 校验（自动 `ALTER TABLE`）。
-   - 兼容已有 SQLite 库；无须手工迁移即可写入新列。
+### 3. 身份与引用增强 ✅
+- `papergazer/core/identity_enrich.enrich_identities` 对接 ORCID / ROR v2，写入 `identities_author`、`identities_affiliation`。  
+- `papergazer/analytics/citation.build_citation_graph` 基于 `references_json` 构建 `graphs_citation` 表，支持 dry-run、重建、本地 DOI 匹配。
 
-2. **批处理脚本**
-   - 新增 `scripts/process_fulltext_batch.py`：
-     - 支持 `--limit`、`--since-days`、`--force`、`--dry-run`、`--output-dir` 等参数；
-     - 遍历尚未生成 TEI 的论文，调用 `process_fulltext_document`（含 GROBID 支持），生成文件并回写 `tei_path`；
-     - 提供 dry-run 模式评估计划（默认输出目录 `config.grobid.output_dir` 或覆盖参数）。
-   - 示例运行（dry-run）：
-     ```bash
-     python scripts/process_fulltext_batch.py --limit 5 --dry-run
-     ```
-     若未启用 GROBID，会提示“仅对有文本/XML 的条目进行包装”。
+## P2 阶段执行状态（分析能力）
 
-3. **工具导出**
-   - `papergazer.utils` 现在额外导出 `GrobidDisabledError`，便于调用层判断 GROBID 开关。
+### 1. 语义向量与相似文献 ✅
+- `papergazer/core/embeddings.generate_embeddings_for_papers` 生成语义向量并存储于 `embeddings` 表，支持标题/摘要/TEI 组合。  
+- `scripts/generate_embeddings.py` 作为轻量入口，提供 `--model`、`--fields`、`--since-days`、`--dry-run` 等选项。
 
-### P1 进展：外部元数据补全已整合 ✅
+### 2. 主题演化 ✅
+- `papergazer/analytics/topics.analyze_topic_trends` 基于 OpenAlex concepts 统计年/季度趋势，输出 Top-N 增长主题及完整时间序列。  
+- `scripts/analyze_papers.py` 新增 `topics` 分析类型，可配置粒度 (`--topics-granularity`) 与跨度 (`--topics-since-years`)。
 
-1. **工具沉淀**
-   - `papergazer/utils/metadata.py` 统一封装 Crossref / OpenAlex / Unpaywall 的抓取与入库逻辑。
-   - 新增 `enrich_crossref_metadata` / `enrich_openalex_metadata` / `enrich_unpaywall_metadata`，支持 `limit`、`since_days`、`force`、`dry_run`。
+### 3. 引用与合作网络 ✅
+- `papergazer/analytics/citation.summarize_citation_network` 使用 networkx 计算 PageRank / 入度 Top 节点。  
+- `papergazer/analytics/citation.analyze_collaboration_network` 基于标准化机构信息得出合作边列表。  
+- CLI 新增 `citation`、`collaboration` 分析类型，输出富表格结果。
 
-2. **CLI 集成**
-   - `scripts/daily_ingest.py` 增加 `--enrich-metadata` 与 `--enrich-sources` 等参数，在巡检流程内即可触发 OA 元数据补全。
-   - 运行结果按来源输出成功 / 跳过 / 失败统计，便于与巡检日志统一查看。
+### 4. OA/FAIR 指标 ✅
+- `papergazer/analytics/oa.monitor_oa` 统计 OA 占比、许可分布、数据/代码链接并可持久化至 `analytics_oa`。  
+- `scripts/analyze_papers.py` 的 `oa` 分析支持窗口调整、dry-run、数据库写入。
 
-3. **仓库简化**
-   - 移除了独立的 `ingest_crossref_metadata.py`、`ingest_openalex.py`、`ingest_unpaywall.py`，减少脚本分散。
-   - 元数据接口现由 `papergazer.utils` 直接导出，方便后续批处理或服务端复用。
-4. **运行记录与摘要**
-   - `RunRecord` 新增 `cursor` 与 `summary_json` 字段，`enrich_*` 回写运行摘要并更新检查点。
-   - `daily_ingest.py --enrich-*` 默认按上次运行的 `ingested_at` 游标增量处理，日志中打印请求统计。
-
-### P1 进展：图表抽取与身份识别 ✅
-
-1. **TEI 图表抽取**
-   - 新增 `scripts/extract_figures_tables.py`，支持 `--since-days`、`--limit`、`--force`、`--dry-run` 等参数。
-   - 解析 TEI 内的 `<figure>`/`<table>`，持久化至 `PaperItem.figures_json` / `PaperItem.tables_json`（自动迁移）。
-   - 配置项 `figures.*` 用于控制是否启用、pdffigures2 路径、缓存目录等。
-
-2. **ORCID / ROR 标准化**
-   - 新建 `AuthorIdentity`、`AffiliationIdentity` 表与轻量迁移逻辑。
-   - `scripts/enrich_identities.py` 串联 ORCID Expanded Search 与 ROR v2 API，支持缓存、强制重跑、dry-run。
-   - 配置项 `identity.*` 定义缓存目录、阈值、API endpoint/token；RunRecord 可追踪执行摘要。
-
-### P1 进展：分析层基线 ✅
-
-1. **引用网络**
-   - 新增 `graphs_citation` 表，`scripts/build_citation_graph.py` 可从 `references_json` 构建引用边，支持 DOI 本地解析、dry-run、强制刷新。
-
-2. **概念统计**
-   - `scripts/analyze_concepts.py` 聚合 OpenAlex concepts（Top-N、窗口可调），可选择写入 `analytics_concepts` 表供仪表盘使用。
-
-3. **OA / FAIR 监控**
-   - `scripts/monitor_oa.py` 计算 OA 占比、许可分布及数据/代码链接信号，可将结果持久化到 `analytics_oa`。
-
-### 下一步建议
-- 启动 GROBID 服务后，去掉 `--dry-run` 实际生成 TEI（需配置 `grobid.enabled=true` 并确保服务可达）。
-- 补齐 PDF 缺失问题（当前抽样显示约 99% 缺少 PDF），否则 TEI 批量流程仍会大量跳过。
-- 利用元数据补全成果，规划下一波 P1 任务：如引用网络 / 概念统计 / OA 占比监控等分析模块。
-
-如需继续编排 Crossref/OpenAlex 批量 ETL 或运行 TEI 实测，请随时告知。
+## 后续建议
+- **语义检索**：在 `papergazer/core/embeddings` 之上实现相似论文检索接口，服务化供 API/前端使用。  
+- **主题深化**：结合语义向量接入 BERTopic / 主题突变检测，将热点演化写入 dashboards。  
+- **可视化与仪表盘**：基于 `analytics_*` 表构建 Superset/Metabase 图表，形成日常监测面板。  
+- **长文档 QA**：利用 TEI、图表 JSON、语义向量构建证据仓，为 P3/P4 的问答与综述自动化奠定基础。

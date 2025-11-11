@@ -70,6 +70,7 @@ cp configs/config.yaml.example configs/config.yaml
 - `arxiv.categories`: 巡检的 arXiv 分类（可覆盖 geoscience、remote sensing、AI 等学科）。
 - `journals.*`: 按 print / online ISSN 组织的期刊集合，可扩展任意同领域期刊。
 - `grobid`, `figures`, `identity`: 控制全文解析、图表抽取、ORCID/ROR 匹配等高级流程。
+- `embeddings.*`: 语义向量生成设置（模型、参与字段、批次大小、截断长度）。
 - `store.db_path` / `store.papers_dir`: 数据库与全文存储路径。
 
 `configs/config.test.yaml` 便于本地调试，已加入 `.gitignore`。
@@ -96,12 +97,19 @@ python scripts/daily_ingest.py --days 7 --download \
 python scripts/daily_ingest.py --enrich-metadata --enrich-limit 500
 ```
 
+当 `embeddings.enabled=true` 时，巡检后会自动执行语义向量生成，可通过 `--skip-embeddings` 临时跳过。
+
 ### 分析与导出
 
 ```bash
 # 组合分析（作者 / 期刊 / OA / 概念）
 python scripts/analyze_papers.py authors venues oa concepts 30 \
   --window-days 60 --top 20 --concept-dry-run --oa-dry-run
+
+# 主题趋势 / 引用网络 / 机构合作
+python scripts/analyze_papers.py topics 30 --topics-granularity quarter
+python scripts/analyze_papers.py citation 30 --citation-since-days 180 --citation-top 15
+python scripts/analyze_papers.py collaboration 30 --collab-min-weight 2
 
 # 导出指定时间段的摘要（支持作者/关键词过滤）
 python scripts/export_abstracts.py --days 30 --keyword "GNSS" \
