@@ -60,9 +60,11 @@ async def main():
   python scripts/daily_ingest.py --download --download-days 7 --download-limit 100
 
   # 查询最近30天的论文（忽略检查点，更新已有论文）
+  # 注意：如果时间跨度 > 3天，会自动分批处理以避免数据量过大
   python scripts/daily_ingest.py --days 30
 
   # 查询指定日期范围的论文（忽略检查点）
+  # 如果时间跨度大于3天，将自动分批处理（每批3天）
   python scripts/daily_ingest.py --since 2025-01-01 --until 2025-01-31
 
   # 查询指定时间范围的论文（忽略检查点）
