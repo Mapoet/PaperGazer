@@ -2,23 +2,24 @@
 工具模块：提供查询、分析和巡检功能
 """
 
-from .analyze import (
+from papergazer.utils.analyze import (
     analyze_abstracts_by_days,
     analyze_authors_by_days,
     analyze_oa_status_by_days,
     analyze_venues_by_days,
     get_papers_by_days,
 )
-from .daily_ingest import daily_ingest_all, daily_ingest_sources
-from .download import download_all_papers, download_arxiv_papers, download_oa_papers
-from .grobid import (
+from papergazer.utils.daily_ingest import daily_ingest_all, daily_ingest_sources
+from papergazer.utils.download import download_all_papers, download_arxiv_papers, download_oa_papers
+from papergazer.utils.grobid import (
     GrobidDisabledError,
     GrobidResult,
     process_fulltext_document,
     process_fulltext_document_sync,
 )
-from .logging import setup_logging
-from .metadata import (
+from papergazer.utils.identity import build_cache as build_identity_cache, normalize_name
+from papergazer.utils.logging import setup_logging
+from papergazer.utils.metadata import (
     fetch_crossref_metadata,
     fetch_openalex_metadata,
     fetch_unpaywall_metadata,
@@ -27,7 +28,8 @@ from .metadata import (
     enrich_openalex_metadata,
     enrich_unpaywall_metadata,
 )
-from .query import (
+from papergazer.utils.tei import extract_figures_from_tei, extract_tables_from_tei
+from papergazer.utils.query import (
     query_all_sources_by_days,
     query_arxiv_by_days,
     query_crossref_by_days,
@@ -75,5 +77,9 @@ __all__ = [
     "enrich_crossref_metadata",
     "enrich_openalex_metadata",
     "enrich_unpaywall_metadata",
+    "extract_figures_from_tei",
+    "extract_tables_from_tei",
+    "build_identity_cache",
+    "normalize_name",
 ]
 

@@ -39,6 +39,29 @@
    - `RunRecord` 新增 `cursor` 与 `summary_json` 字段，`enrich_*` 回写运行摘要并更新检查点。
    - `daily_ingest.py --enrich-*` 默认按上次运行的 `ingested_at` 游标增量处理，日志中打印请求统计。
 
+### P1 进展：图表抽取与身份识别 ✅
+
+1. **TEI 图表抽取**
+   - 新增 `scripts/extract_figures_tables.py`，支持 `--since-days`、`--limit`、`--force`、`--dry-run` 等参数。
+   - 解析 TEI 内的 `<figure>`/`<table>`，持久化至 `PaperItem.figures_json` / `PaperItem.tables_json`（自动迁移）。
+   - 配置项 `figures.*` 用于控制是否启用、pdffigures2 路径、缓存目录等。
+
+2. **ORCID / ROR 标准化**
+   - 新建 `AuthorIdentity`、`AffiliationIdentity` 表与轻量迁移逻辑。
+   - `scripts/enrich_identities.py` 串联 ORCID Expanded Search 与 ROR v2 API，支持缓存、强制重跑、dry-run。
+   - 配置项 `identity.*` 定义缓存目录、阈值、API endpoint/token；RunRecord 可追踪执行摘要。
+
+### P1 进展：分析层基线 ✅
+
+1. **引用网络**
+   - 新增 `graphs_citation` 表，`scripts/build_citation_graph.py` 可从 `references_json` 构建引用边，支持 DOI 本地解析、dry-run、强制刷新。
+
+2. **概念统计**
+   - `scripts/analyze_concepts.py` 聚合 OpenAlex concepts（Top-N、窗口可调），可选择写入 `analytics_concepts` 表供仪表盘使用。
+
+3. **OA / FAIR 监控**
+   - `scripts/monitor_oa.py` 计算 OA 占比、许可分布及数据/代码链接信号，可将结果持久化到 `analytics_oa`。
+
 ### 下一步建议
 - 启动 GROBID 服务后，去掉 `--dry-run` 实际生成 TEI（需配置 `grobid.enabled=true` 并确保服务可达）。
 - 补齐 PDF 缺失问题（当前抽样显示约 99% 缺少 PDF），否则 TEI 批量流程仍会大量跳过。

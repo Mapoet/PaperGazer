@@ -288,3 +288,27 @@ retry:
   max_delay: 60.0             # 最大延迟（秒）
   exponential_base: 2.0       # 指数退避基数
 
+# 图表抽取配置
+figures:
+  enabled: false               # 是否启用图表抽取
+  prefer_pdf: true             # 优先使用 PDF 进行抽取
+  pdffigures2_path: null       # 可选：pdffigures2 可执行文件路径
+  table_transformer_model: null  # 可选：table-transformer 模型路径或服务地址
+  max_per_paper: 20            # 每篇论文最多保存的图表数量
+  cache_dir: "./data/cache/figures"  # 临时缓存目录
+
+# 作者/机构身份识别配置
+identity:
+  cache_dir: "./data/cache/identity"
+  orcid:
+    enabled: false
+    base_url: "https://pub.orcid.org/v3.0/expanded-search"
+    token: null               # 可选：ORCID API Token
+    max_results: 5
+    min_score: 0.6
+  ror:
+    enabled: false
+    base_url: "https://api.ror.org/v2/organizations"
+    max_results: 5
+    min_score: 0.75
+

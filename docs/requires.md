@@ -327,5 +327,4 @@ schedule:
 [9]: https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api/?utm_source=chatgpt.com "Tips for using the Crossref REST API"
 
 
-以 @INTELLIGENT_PLATFORM_ROADMAP.md 为总纲， 执行并检查 @INTELLIGENT_PLATFORM_ACTION_PLAN.md 中的P0阶段。
-结合 @P0_EXECUTION_REPORT.md 进行执行与检查报告
+以 @INTELLIGENT_PLATFORM_ROADMAP.md 为总纲， 执行并检查 @INTELLIGENT_PLATFORM_ACTION_PLAN.md 中的P0阶段。结合 @P0_EXECUTION_REPORT.md 进行执行与检查报告

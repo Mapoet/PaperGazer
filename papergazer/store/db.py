@@ -54,6 +54,8 @@ class PaperItem(Base):
     pdf_path = Column(Text)
     tei_path = Column(Text)
     abstract_jats = Column(Text)
+    figures_json = Column(Text)
+    tables_json = Column(Text)
     crossref_json = Column(Text)
     openalex_json = Column(Text)
     unpaywall_json = Column(Text)
@@ -134,6 +136,102 @@ class RunRecord(Base):
     summary_json = Column(Text)
 
 
+class AuthorIdentity(Base):
+    """作者标准化标识"""
+
+    __tablename__ = "identities_author"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    paper_id = Column(Integer, index=True, nullable=False)
+    local_index = Column(Integer, nullable=False)
+    source_name = Column(String(255), nullable=False)
+    normalized_name = Column(String(255))
+    orcid = Column(String(32))
+    confidence = Column(String(32))
+    metadata_json = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("paper_id", "local_index", name="uq_author_identity_unique"),
+    )
+
+
+class AffiliationIdentity(Base):
+    """机构标准化标识"""
+
+    __tablename__ = "identities_affiliation"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    paper_id = Column(Integer, index=True, nullable=False)
+    local_index = Column(Integer, nullable=False)
+    source_name = Column(String(255), nullable=False)
+    normalized_name = Column(String(255))
+    ror_id = Column(String(64))
+    country_code = Column(String(8))
+    latitude = Column(String(32))
+    longitude = Column(String(32))
+    confidence = Column(String(32))
+    metadata_json = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        UniqueConstraint("paper_id", "local_index", name="uq_affiliation_identity_unique"),
+    )
+
+
+class CitationEdge(Base):
+    """引用关系"""
+
+    __tablename__ = "graphs_citation"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    paper_id = Column(Integer, index=True, nullable=False)
+    cited_paper_id = Column(Integer, index=True)
+    cited_doi = Column(String(255), index=True)
+    relation_type = Column(String(64))
+    weight = Column(Integer, default=1)
+    raw_reference_json = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class ConceptMetric(Base):
+    """概念统计指标"""
+
+    __tablename__ = "analytics_concepts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    concept_id = Column(String(255), index=True)
+    concept_name = Column(String(255), nullable=False)
+    concept_level = Column(Integer)
+    paper_count = Column(Integer, default=0)
+    avg_score = Column(String(32))
+    window_start = Column(DateTime, index=True, nullable=False)
+    window_end = Column(DateTime, index=True, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    metadata_json = Column(Text)
+
+
+class OAMetric(Base):
+    """开放获取与 FAIR 指标"""
+
+    __tablename__ = "analytics_oa"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    window_start = Column(DateTime, index=True, nullable=False)
+    window_end = Column(DateTime, index=True, nullable=False)
+    source = Column(String(64), index=True)
+    total_count = Column(Integer, default=0)
+    oa_count = Column(Integer, default=0)
+    gold_count = Column(Integer, default=0)
+    green_count = Column(Integer, default=0)
+    bronze_count = Column(Integer, default=0)
+    license_json = Column(Text)
+    data_link_count = Column(Integer, default=0)
+    code_link_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    metadata_json = Column(Text)
+
+
 # 全局变量
 _engine = None
 _SessionLocal = None
@@ -211,9 +309,52 @@ def _ensure_schema(engine) -> None:
         add_column("oa_status", "TEXT")
         add_column("oa_license", "TEXT")
         add_column("cited_by_count", "INTEGER")
+        add_column("figures_json", "TEXT")
+        add_column("tables_json", "TEXT")
 
         # 更新 runs 表结构
         result = conn.execute(text("PRAGMA table_info(runs)"))
+        # 初始化身份识别表
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS identities_author (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    paper_id INTEGER NOT NULL,
+                    local_index INTEGER NOT NULL,
+                    source_name TEXT NOT NULL,
+                    normalized_name TEXT,
+                    orcid TEXT,
+                    confidence TEXT,
+                    metadata_json TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(paper_id, local_index)
+                )
+                """
+            )
+        )
+
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS identities_affiliation (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    paper_id INTEGER NOT NULL,
+                    local_index INTEGER NOT NULL,
+                    source_name TEXT NOT NULL,
+                    normalized_name TEXT,
+                    ror_id TEXT,
+                    country_code TEXT,
+                    latitude TEXT,
+                    longitude TEXT,
+                    confidence TEXT,
+                    metadata_json TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(paper_id, local_index)
+                )
+                """
+            )
+        )
         run_columns = {row[1] for row in result}
 
         def add_run_column(name: str, col_type: str) -> None:

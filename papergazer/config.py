@@ -91,6 +91,63 @@ class RetryConfig(BaseSettings):
     exponential_base: float = Field(default=2.0, description="指数退避基数")
 
 
+class FigureExtractionConfig(BaseSettings):
+    """图表抽取配置"""
+
+    enabled: bool = Field(default=False, description="是否启用图表抽取流程")
+    prefer_pdf: bool = Field(default=True, description="优先使用 PDF 抽取，否则回退到 TEI")
+    pdffigures2_path: Optional[str] = Field(
+        default=None, description="pdffigures2 可执行文件路径（若为空则仅使用 TEI ）"
+    )
+    table_transformer_model: Optional[str] = Field(
+        default=None, description="table-transformer 模型权重或服务地址"
+    )
+    max_per_paper: int = Field(
+        default=20, description="每篇论文最多保存的图表数量（分别计算）"
+    )
+    cache_dir: str = Field(
+        default="./data/cache/figures",
+        description="临时缓存目录（用于外部工具输出）",
+    )
+
+
+class OrcidConfig(BaseSettings):
+    """ORCID 搜索配置"""
+
+    enabled: bool = Field(default=False, description="是否启用 ORCID 匹配")
+    base_url: str = Field(
+        default="https://pub.orcid.org/v3.0/expanded-search",
+        description="ORCID Expanded Search API 基础地址",
+    )
+    token: Optional[str] = Field(
+        default=None, description="ORCID API Token（可选，若未提供则使用匿名速率限制）"
+    )
+    max_results: int = Field(default=5, description="每次匹配返回的最大结果数")
+    min_score: float = Field(default=0.6, description="接受匹配的最低相似度")
+
+
+class RorConfig(BaseSettings):
+    """ROR 搜索配置"""
+
+    enabled: bool = Field(default=False, description="是否启用 ROR 匹配")
+    base_url: str = Field(
+        default="https://api.ror.org/v2/organizations",
+        description="ROR v2 搜索 API 地址",
+    )
+    max_results: int = Field(default=5, description="每次匹配返回的最大结果数")
+    min_score: float = Field(default=0.75, description="接受匹配的最低得分")
+
+
+class IdentityConfig(BaseSettings):
+    """作者/机构身份识别配置"""
+
+    cache_dir: str = Field(
+        default="./data/cache/identity", description="本地缓存目录，避免重复请求"
+    )
+    orcid: OrcidConfig = Field(default_factory=OrcidConfig)
+    ror: RorConfig = Field(default_factory=RorConfig)
+
+
 class Settings(BaseSettings):
     """应用配置"""
 
@@ -115,6 +172,8 @@ class Settings(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     grobid: GrobidConfig = Field(default_factory=GrobidConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
+    figures: FigureExtractionConfig = Field(default_factory=FigureExtractionConfig)
+    identity: IdentityConfig = Field(default_factory=IdentityConfig)
 
 
 def load_config(config_path: str | Path | None = None) -> Settings:

@@ -56,19 +56,19 @@
 
 #### 3. 图表抽取
 1. 选型：`pdffigures2`（图/表位置信息）与 `Table-Transformer`（结构化表格）。
-2. 实现 `scripts/extract_figures_tables.py`：  
+2. 实现 `scripts/extract_figures_tables.py`（✅ 已上线 dry-run/force/max-limit）：  
    - 输入 `tei_path` 与原 PDF → 输出图表 JSON（路径、标题、说明、坐标）。
-3. 定义 JSON schema：`figures_json`, `tables_json`。
+3. 定义 JSON schema：`figures_json`, `tables_json`（已写入 `PaperItem`）。
 
 #### 4. ORCID/ ROR 对接
-1. 编写 `utils/identity.py`：  
+1. 编写 `utils/identity.py`（✅ 已实现缓存与搜索封装）：  
    - 名称标准化、请求 ORCID Search (`/expanded-search`)、ROR v2 (`/organizations?query=`)。  
-   - 内建缓存（SQLite/Redis/JSON 文件）。
-2. 新增表：`identities_author`, `identities_affiliation`（或 JSONB）；
+   - 内建缓存（SQLite/JSON 文件）。
+2. 新增表：`identities_author`, `identities_affiliation`（✅ 自动迁移完成）；
    - 字段：`paper_id`, `local_index`, `source_name`, `matched_name`, `orcid/ror_id`, `confidence`, `metadata`。
-3. 编写 `scripts/enrich_identities.py`：  
+3. 编写 `scripts/enrich_identities.py`（✅ 支持 dry-run/force/source 过滤）：  
    - 支持 `--since`, `--limit`, `--sources`，执行批量匹配。  
-   - 记录无法匹配的清单，便于人工修正。
+   - 记录无法匹配的清单，回显到终端供人工修正。
 
 ---
 
