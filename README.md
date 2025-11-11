@@ -1,127 +1,175 @@
 # PaperGazer
 
-**期刊 + arXiv 每日巡检与 OA 全文抓取系统**
+**Toward an integrated scientific literature intelligence platform**
 
-PaperGazer 是一个自动化论文监控与抓取系统，支持每日巡检 arXiv 预印本和各类期刊（通过 ISSN），并按需抓取开放获取（OA）全文或非 OA 摘要。
+PaperGazer 自动化地巡检、抓取并分析科研论文元数据与全文，在统一的数据底座上完成计量学、NLP、知识图谱与长文档问答所需的关键步骤。
 
-## 功能特性
+---
 
-- 📡 **每日自动巡检**：定时抓取 arXiv 和期刊最新论文元数据（支持通过 print 或 online ISSN 查询）
-- 🔍 **多源数据采集**：支持 arXiv、Crossref、Unpaywall、Europe PMC
-- 📥 **智能全文抓取**：按优先级自动获取 OA PDF 或摘要
-- 💾 **结构化存储**：SQLite 数据库 + 文件系统存储
-- 🎯 **去重与质量控制**：自动去重、数据归一化、错误重试
-- 🖥️ **命令行接口**：基于 Typer 的友好 CLI
+## 核心能力
 
-## 技术栈
+- 📡 **每日巡检管线**：支持 arXiv、Crossref、OpenAlex、Europe PMC、Unpaywall 等来源，按时间窗口自适应分批抓取，RunRecord 记录游标并自动增量。
+- 🧭 **多源元数据补全**：整合 Crossref/OpenAlex/Unpaywall API，补齐引用、基金、许可、OA 状态、概念标签、引用网络等结构化字段。
+- 📑 **全文结构化处理**：可选对接 GROBID 生成 TEI，内置 TEI 图表解析、pdffigures2/Table-Transformer 抽取图像与表格结构。
+- 🧬 **身份识别与语义增强**：支持 ORCID/ROR 标准化作者与机构，串联概念热度、OA/FAIR 指标、引用网络等分析模块。
+- 🖥️ **统一 CLI 工作流**：`daily_ingest.py`、`analyze_papers.py`、`query_papers.py`、`export_abstracts.py` 提供巡检、分析、检索、导出的一体化体验。
+- 🧰 **可组合的核心模块**：`papergazer.core`、`papergazer.analytics`、`papergazer.utils` 暴露可复用函数，支持脚本与服务化集成。
 
-- **Python 3.11+**
-- **异步 HTTP**：`httpx`
-- **数据解析**：`feedparser`, `lxml`
-- **配置管理**：`pydantic`, `pyyaml`
-- **数据存储**：`SQLAlchemy`, `sqlite3`
-- **重试机制**：`tenacity`
-- **CLI 框架**：`typer`
-- **任务调度**：`apscheduler` 或 `cron`
+---
 
-## 快速开始
+## 架构总览
 
-### 安装
+```
+┌──────────────────────┐
+│      CLI / Scripts    │  daily_ingest / analyze / query / export
+└──────────┬───────────┘
+           │
+┌──────────▼───────────┐
+│     Core Pipelines    │  ingest · fetch · fulltext · figures · identity
+└──────────┬───────────┘
+           │
+┌──────────▼───────────┐
+│  Analytics Modules    │  citation · concepts · OA dashboards
+└──────────┬───────────┘
+           │
+┌──────────▼───────────┐
+│   Data Access Layer   │  utils.metadata · download · db_filters
+└──────────┬───────────┘
+           │
+┌──────────▼───────────┐
+│     External APIs     │  arXiv · Crossref · OpenAlex · Unpaywall · Europe PMC · ORCID · ROR
+└──────────────────────┘
+```
+
+数据存储由 SQLite + 文件系统组成，`PaperItem` 主表扩展了 TEI、图表、概念、引用、身份等列，`RunRecord` 保留游标与运行摘要以支持可追溯的增量流程。
+
+---
+
+## 快速上手
+
+### 1. 安装环境
 
 ```bash
-# 克隆仓库
 git clone <repository-url>
 cd PaperGazer
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装依赖
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 配置
-
-复制并编辑配置文件：
+### 2. 准备配置
 
 ```bash
 cp configs/config.yaml.example configs/config.yaml
-# 编辑 config.yaml，设置邮箱、arXiv 分类等
+# 然后编辑 config.yaml，填入邮箱、数据源分类、存储目录等
 ```
 
-**重要配置项**：
-- `mailto`: 联系邮箱（用于 Crossref/Unpaywall API，必须使用真实邮箱，不能使用 `test@example.com`）
-- `arxiv.categories`: 关注的 arXiv 分类列表
-- `journals.issn`: 期刊 ISSN 列表（支持 print 和 online ISSN，可配置多个期刊）
-- `store.db_path`: 数据库文件路径
-- `store.papers_dir`: 论文文件存储目录
+关键配置节：
 
-**注意**: 
-- 配置文件 `config.yaml` 已加入 `.gitignore`，不会被提交到版本控制
-- 测试时可以使用 `configs/config.test.yaml`（同样已加入 `.gitignore`）
-- 参考 `configs/config.yaml.example` 了解所有可配置项
+- `mailto`: 用于 Crossref / Unpaywall / OpenAlex 的邮箱（必须真实）。
+- `arxiv.categories`: 巡检的 arXiv 分类（可覆盖 geoscience、remote sensing、AI 等学科）。
+- `journals.*`: 按 print / online ISSN 组织的期刊集合，可扩展任意同领域期刊。
+- `grobid`, `figures`, `identity`: 控制全文解析、图表抽取、ORCID/ROR 匹配等高级流程。
+- `store.db_path` / `store.papers_dir`: 数据库与全文存储路径。
 
-### 使用
+`configs/config.test.yaml` 便于本地调试，已加入 `.gitignore`。
+
+### 3. 初始化数据库
+
+任一 CLI 脚本都会调用 `papergazer.store.db.init_db`；首次运行时会自动建表并执行轻量级列迁移，无需手工干预。
+
+---
+
+## 常用工作流
+
+### 每日巡检与元数据补全
 
 ```bash
-# 每日巡检（arXiv + 期刊）
-python -m papergazer.cli check
+# 巡检全部数据源（含自动分批、RunRecord 游标）
+python scripts/daily_ingest.py --days 7
 
-# 按需抓取全文
-python -m papergazer.cli fetch 10.1038/s41586-xxxx-xxxx-x
-python -m papergazer.cli fetch arXiv:2501.01234
+# 巡检 + 下载 OA/fulltext + 后处理（TEI / 图表 / 引用网络）
+python scripts/daily_ingest.py --days 7 --download \
+  --post-tei --post-figures --post-citation --post-dry-run
 
-# 搜索论文
-python -m papergazer.cli search --q "GNSS radio occultation"
-
-# 导出数据
-python -m papergazer.cli export --since 2025-01-01 --format csv
+# 仅补全元数据（Crossref / OpenAlex / Unpaywall）
+python scripts/daily_ingest.py --enrich-metadata --enrich-limit 500
 ```
+
+### 分析与导出
+
+```bash
+# 组合分析（作者 / 期刊 / OA / 概念）
+python scripts/analyze_papers.py authors venues oa concepts 30 \
+  --window-days 60 --top 20 --concept-dry-run --oa-dry-run
+
+# 导出指定时间段的摘要（支持作者/关键词过滤）
+python scripts/export_abstracts.py --days 30 --keyword "GNSS" \
+  --output exports/gnss_abstracts.md
+
+# 查询模式：days / author / venue / keyword
+python scripts/query_papers.py days 7
+python scripts/query_papers.py author "Smith" --limit 20
+```
+
+所有 CLI 均支持 `--config` 切换配置、`--verbose` 输出详细日志。
+
+---
 
 ## 项目结构
 
 ```
-PaperGazer/
-├── papergazer/          # 主包
-│   ├── sources/         # 数据源模块
-│   ├── store/           # 存储模块
-│   ├── core/            # 核心逻辑
-│   └── cli.py           # 命令行接口
-├── configs/             # 配置文件
-├── data/                # 数据目录（gitignore）
-├── tests/               # 测试代码
-├── docs/                # 文档
-├── scripts/             # 工具脚本
-└── requirements.txt     # Python 依赖
+papergazer/
+├── analytics/          # Citation graph · concept trends · OA dashboards
+├── core/               # ingest · fetch · fulltext · figures · identity
+├── sources/            # arxiv · crossref · openalex · unpaywall · europe_pmc
+├── store/              # SQLAlchemy models · migrations · file helpers
+├── utils/              # metadata · download · db_filters · logging
+└── config.py           # Pydantic settings (YAML)
+
+scripts/
+├── daily_ingest.py     # 巡检 + 下载 + 元数据补全 + 后处理
+├── analyze_papers.py   # 作者/期刊/OA/概念等组合分析
+├── query_papers.py     # days / author / venue / keyword 查询
+└── export_abstracts.py # Markdown 摘要导出
+
+docs/                   # 路线图、规范、操作手册
+configs/                # YAML 配置（example + 本地/测试）
+data/                   # 数据库存档与全文目录（gitignore）
 ```
 
-## 数据源
+---
 
-- **arXiv**：官方 Atom API（无需授权）
-- **Crossref**：REST API（需邮箱）
-- **Unpaywall**：OA 状态查询（需邮箱）
-- **Europe PMC**：全文 XML 获取（无需授权）
-
-## 开发
+## 开发与质量
 
 ```bash
-# 运行测试
-pytest tests/
+# 单元 / 集成测试
+pytest tests/ -v
 
 # 代码格式化
-black papergazer/
-isort papergazer/
+black papergazer scripts
+isort papergazer scripts
 
 # 类型检查
-mypy papergazer/
+mypy papergazer
+
+# 静态检查（可选）
+ruff check papergazer scripts
 ```
 
-## 许可证
+推荐阅读：
 
-[待定]
+- `.cursorrules` —— 代码规范、模块职责、API 约束。
+- `docs/INTELLIGENT_PLATFORM_ROADMAP.md` —— 总体路线图。
+- `docs/INTELLIGENT_PLATFORM_ACTION_PLAN.md` —— 阶段性建设计划。
+- `docs/PROJECT_COLLAB_SETUP.md` —— 协同流程与看板约定。
 
-## 作者
+---
 
-Mapoet
+## 许可证与贡献
+
+- 许可证：MIT（见 `LICENSE`）
+- 维护者：Mapoet（欢迎 Issue / PR / Feature Request）
+
+PaperGazer 已具备构建领域专题图谱、开放获取评估、长文档 QA 等上层应用所需的核心能力。欢迎基于现有模块扩展更多科研工作流。 
 

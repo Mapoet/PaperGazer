@@ -2,7 +2,7 @@
 
 ## 项目概述
 PaperGazer 是一个自动化论文监控与抓取系统，使用 Python 3.11+ 开发，主要功能包括：
-- 每日自动巡检 arXiv 预印本和 CNS（Nature/Science/Cell）期刊
+- 每日自动巡检 arXiv 预印本与配置的学术期刊（支持 print / online ISSN）
 - 按需抓取开放获取（OA）全文或非 OA 摘要
 - 结构化存储与去重管理
 
@@ -39,15 +39,16 @@ PaperGazer 是一个自动化论文监控与抓取系统，使用 Python 3.11+ �
 ```
 PaperGazer/
 ├── papergazer/          # 主包
-│   ├── sources/         # 数据源模块（arXiv, Crossref, Unpaywall, Europe PMC）
+│   ├── sources/         # 数据源模块（arXiv, Crossref, OpenAlex, Unpaywall, Europe PMC）
 │   ├── store/           # 存储模块（数据库、文件系统）
-│   ├── core/            # 核心逻辑（巡检、抓取 Pipeline）
+│   ├── core/            # 核心逻辑（巡检、抓取、全文、图表、身份）
+│   ├── analytics/       # 分析模块（引用网络、概念热度、OA 指标）
 │   └── cli.py           # 命令行接口
 ├── configs/             # 配置文件
 ├── data/                # 数据目录（gitignore）
 ├── tests/               # 测试代码
 ├── docs/                # 文档
-└── scripts/             # 工具脚本
+└── scripts/             # 用户脚本（巡检、分析、检索、导出）
 ```
 
 ## 模块职责
@@ -55,7 +56,7 @@ PaperGazer/
 ### sources/ 模块
 - **职责**：封装各数据源的 API 调用与数据解析
 - **要求**：
-  - 每个数据源独立文件（`arxiv.py`, `crossref.py`, `unpaywall.py`, `europe_pmc.py`）
+  - 每个数据源独立文件（`arxiv.py`, `crossref.py`, `openalex.py`, `unpaywall.py`, `europe_pmc.py`）
   - 统一返回标准化数据结构（使用 `pydantic` models）
   - 包含错误处理与重试逻辑
   - 遵守 API 使用规范（请求间隔、邮箱标识等）
@@ -71,10 +72,21 @@ PaperGazer/
 ### core/ 模块
 - **职责**：业务流程编排
 - **要求**：
-  - `ingest.py`：每日巡检 Pipeline
+  - `ingest.py`：每日巡检与增量控制 Pipeline
   - `fetch.py`：按需抓取 Pipeline（优先级：arXiv → Unpaywall → Europe PMC → Crossref）
+  - `fulltext.py`：GROBID 调用与 TEI 生成（兼容文本/XML 包装）
+  - `figures.py`：图表抽取流程（pdffigures2 / Table-Transformer）
+  - `identity_enrich.py`：ORCID/ROR 身份标准化
   - 包含去重逻辑
   - 记录详细日志
+
+### analytics/ 模块
+- **职责**：指标与分析任务
+- **要求**：
+  - `citation.py`：引用网络构建（Graph）
+  - `concepts.py`：概念热度统计
+  - `oa.py`：OA / FAIR 指标监控
+  - 提供可组合的分析结果（persist / dry-run 可配置）
 
 ### cli.py
 - **职责**：命令行接口
@@ -130,9 +142,10 @@ PaperGazer/
 ## 性能要求
 
 - 异步 HTTP 请求，控制并发数
-- 数据库批量插入操作
+- 数据库批量插入与轻量迁移
 - 文件下载批量处理
 - 避免重复下载（文件存在性检查 + 哈希验证）
+- 对长时间跨度任务进行自动分批（默认 3 天）处理
 
 ## 合规性
 
@@ -148,6 +161,7 @@ PaperGazer/
 4. **代码格式化**：`black . && isort .`
 5. **类型检查**：`mypy papergazer/`
 6. **提交代码**：使用清晰的 commit message
+- 对 CLI/脚本新增参数需在 README 与相关 docs 中同步说明
 
 ## 注意事项
 
@@ -155,6 +169,8 @@ PaperGazer/
 - 配置文件中的敏感信息（如邮箱）不应提交到版本控制
 - 数据文件（`data/`）已加入 `.gitignore`
 - 保持代码文档的及时更新
+- 当出现功能整合需求时优先将逻辑下沉至 `papergazer` 包内部，`scripts/` 仅保留轻量入口
+- 删除或新增字段需更新 `papergazer/store/db.py` 的轻量迁移逻辑
 
 ## 参考文档
 
