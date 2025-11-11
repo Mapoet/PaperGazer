@@ -77,22 +77,20 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
         FetchError: 下载失败
     """
     default_headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "Mozilla/5.0",
     }
 
-    if "mdpi.com" in url:
-        default_headers.setdefault("Referer", "https://www.mdpi.com/")
+    async def _perform_request(client: httpx.AsyncClient, target_url: str) -> httpx.Response:
+        return await client.get(target_url, follow_redirects=True)
 
     try:
         async with httpx.AsyncClient(
             timeout=timeout,
-            follow_redirects=True,  # 明确启用自动跟随重定向
-            max_redirects=10,  # 允许最多 10 次重定向
+            follow_redirects=True,
+            max_redirects=10,
             headers=default_headers,
         ) as client:
-            response = await client.get(url, follow_redirects=True)
+            response = await _perform_request(client, url)
             
             # 如果最终响应仍然是重定向状态码，说明重定向链没有成功完成，需要手动处理
             if response.status_code in (301, 302, 303, 307, 308):
@@ -120,6 +118,20 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
                 # 手动跟随重定向，递归调用（但限制递归深度）
                 return await download_file(redirect_url, timeout, max_redirect_depth - 1)
             
+            # 针对部分出版社（如 MDPI）需要先访问落地页获取 Cookie，再访问 PDF
+            if response.status_code == 403 and "mdpi.com" in url:
+                from urllib.parse import urlsplit
+
+                parsed = urlsplit(url)
+                pdf_path = parsed.path
+                landing_path = pdf_path.split("/pdf")[0]
+                landing_url = f"{parsed.scheme}://{parsed.netloc}{landing_path}"
+                download_url = f"{parsed.scheme}://{parsed.netloc}{pdf_path}?download=1"
+
+                logger.info("MDPI 返回 403，尝试先访问落地页获取授权 Cookie")
+                await client.get(landing_url)
+                response = await _perform_request(client, download_url)
+
             response.raise_for_status()
             return response.content
     except httpx.HTTPStatusError as e:
