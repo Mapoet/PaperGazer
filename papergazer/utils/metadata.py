@@ -12,7 +12,12 @@ from urllib.parse import quote_plus
 
 import httpx
 
-from papergazer.store.db import PaperItem, get_session
+from papergazer.store.db import (
+    PaperItem,
+    get_last_run,
+    get_session,
+    update_checkpoint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +100,20 @@ def fetch_unpaywall_metadata(doi: str, email: str | None = None, timeout: float 
         raise MetadataFetchError(f"Unpaywall 请求失败 ({doi}): {exc}") from exc
 
 
-def _select_papers(session, column_name: str, limit: int | None, since_days: int | None, force: bool) -> list[PaperItem]:
+def _select_papers(
+    session,
+    column_name: str,
+    limit: int | None,
+    *,
+    force: bool,
+    cutoff: Optional[datetime],
+) -> list[PaperItem]:
     column = getattr(PaperItem, column_name)
     query = session.query(PaperItem).filter(PaperItem.doi.isnot(None))
     if not force:
         query = query.filter((column.is_(None)) | (column == ""))
-    if since_days:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
-        query = query.filter(PaperItem.ingested_at >= cutoff)
+    if cutoff:
+        query = query.filter(PaperItem.ingested_at.isnot(None)).filter(PaperItem.ingested_at >= cutoff)
     query = query.order_by(PaperItem.ingested_at.desc())
     if limit:
         query = query.limit(limit)
@@ -222,7 +233,20 @@ def enrich_crossref_metadata(
     dry_run: bool = False,
 ) -> dict:
     session = get_session()
-    papers = _select_papers(session, "crossref_json", limit, since_days, force)
+    source_key = "crossref_metadata"
+    now_ts = datetime.now(timezone.utc)
+
+    if since_days is not None:
+        cutoff = now_ts - timedelta(days=since_days)
+    elif force:
+        cutoff = None
+    else:
+        last_run = get_last_run(session, source_key)
+        cutoff = last_run.last_checkpoint if last_run else None
+        if cutoff is None:
+            cutoff = now_ts - timedelta(days=7)
+
+    papers = _select_papers(session, "crossref_json", limit, force=force, cutoff=cutoff)
 
     success = skipped = failed = 0
 
@@ -247,6 +271,28 @@ def enrich_crossref_metadata(
             session.rollback()
             logger.exception("[Crossref] 更新失败 #%s (%s): %s", paper.id, paper.doi, exc)
             failed += 1
+    summary = {
+        "processed": len(papers),
+        "success": success,
+        "skipped": skipped,
+        "failed": failed,
+        "limit": limit,
+        "cutoff": cutoff.isoformat() if cutoff else None,
+        "force": force,
+        "dry_run": dry_run,
+    }
+    logger.info("[Crossref] 运行摘要: %s", summary)
+
+    if not dry_run:
+        update_checkpoint(
+            session,
+            source_key,
+            now_ts,
+            items_count=success,
+            cursor=f"ingested_at>={summary['cutoff']}" if summary["cutoff"] else None,
+            summary_json=json.dumps(summary, ensure_ascii=False),
+        )
+        session.commit()
 
     session.close()
     return {"success": success, "skipped": skipped, "failed": failed, "total": len(papers)}
@@ -261,7 +307,20 @@ def enrich_openalex_metadata(
     dry_run: bool = False,
 ) -> dict:
     session = get_session()
-    papers = _select_papers(session, "openalex_json", limit, since_days, force)
+    source_key = "openalex_metadata"
+    now_ts = datetime.now(timezone.utc)
+
+    if since_days is not None:
+        cutoff = now_ts - timedelta(days=since_days)
+    elif force:
+        cutoff = None
+    else:
+        last_run = get_last_run(session, source_key)
+        cutoff = last_run.last_checkpoint if last_run else None
+        if cutoff is None:
+            cutoff = now_ts - timedelta(days=7)
+
+    papers = _select_papers(session, "openalex_json", limit, force=force, cutoff=cutoff)
 
     success = skipped = failed = 0
 
@@ -287,6 +346,29 @@ def enrich_openalex_metadata(
             logger.exception("[OpenAlex] 更新失败 #%s (%s): %s", paper.id, paper.doi, exc)
             failed += 1
 
+    summary = {
+        "processed": len(papers),
+        "success": success,
+        "skipped": skipped,
+        "failed": failed,
+        "limit": limit,
+        "cutoff": cutoff.isoformat() if cutoff else None,
+        "force": force,
+        "dry_run": dry_run,
+    }
+    logger.info("[OpenAlex] 运行摘要: %s", summary)
+
+    if not dry_run:
+        update_checkpoint(
+            session,
+            source_key,
+            now_ts,
+            items_count=success,
+            cursor=f"ingested_at>={summary['cutoff']}" if summary["cutoff"] else None,
+            summary_json=json.dumps(summary, ensure_ascii=False),
+        )
+        session.commit()
+
     session.close()
     return {"success": success, "skipped": skipped, "failed": failed, "total": len(papers)}
 
@@ -300,7 +382,20 @@ def enrich_unpaywall_metadata(
     dry_run: bool = False,
 ) -> dict:
     session = get_session()
-    papers = _select_papers(session, "unpaywall_json", limit, since_days, force)
+    source_key = "unpaywall_metadata"
+    now_ts = datetime.now(timezone.utc)
+
+    if since_days is not None:
+        cutoff = now_ts - timedelta(days=since_days)
+    elif force:
+        cutoff = None
+    else:
+        last_run = get_last_run(session, source_key)
+        cutoff = last_run.last_checkpoint if last_run else None
+        if cutoff is None:
+            cutoff = now_ts - timedelta(days=7)
+
+    papers = _select_papers(session, "unpaywall_json", limit, force=force, cutoff=cutoff)
 
     success = skipped = failed = 0
 
@@ -325,6 +420,29 @@ def enrich_unpaywall_metadata(
             session.rollback()
             logger.exception("[Unpaywall] 更新失败 #%s (%s): %s", paper.id, paper.doi, exc)
             failed += 1
+
+    summary = {
+        "processed": len(papers),
+        "success": success,
+        "skipped": skipped,
+        "failed": failed,
+        "limit": limit,
+        "cutoff": cutoff.isoformat() if cutoff else None,
+        "force": force,
+        "dry_run": dry_run,
+    }
+    logger.info("[Unpaywall] 运行摘要: %s", summary)
+
+    if not dry_run:
+        update_checkpoint(
+            session,
+            source_key,
+            now_ts,
+            items_count=success,
+            cursor=f"ingested_at>={summary['cutoff']}" if summary["cutoff"] else None,
+            summary_json=json.dumps(summary, ensure_ascii=False),
+        )
+        session.commit()
 
     session.close()
     return {"success": success, "skipped": skipped, "failed": failed, "total": len(papers)}

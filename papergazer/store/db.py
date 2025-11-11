@@ -130,6 +130,8 @@ class RunRecord(Base):
     last_checkpoint = Column(DateTime, nullable=False)
     items_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    cursor = Column(Text)
+    summary_json = Column(Text)
 
 
 # 全局变量
@@ -210,6 +212,19 @@ def _ensure_schema(engine) -> None:
         add_column("oa_license", "TEXT")
         add_column("cited_by_count", "INTEGER")
 
+        # 更新 runs 表结构
+        result = conn.execute(text("PRAGMA table_info(runs)"))
+        run_columns = {row[1] for row in result}
+
+        def add_run_column(name: str, col_type: str) -> None:
+            nonlocal run_columns
+            if name not in run_columns:
+                conn.execute(text(f"ALTER TABLE runs ADD COLUMN {name} {col_type}"))
+                run_columns.add(name)
+
+        add_run_column("cursor", "TEXT")
+        add_run_column("summary_json", "TEXT")
+
 
 def upsert_paper(session: Session, metadata: PaperMetadata) -> PaperItem:
     """
@@ -264,7 +279,29 @@ def get_last_checkpoint(session: Session, source: str) -> Optional[datetime]:
     return record.last_checkpoint if record else None
 
 
-def update_checkpoint(session: Session, source: str, checkpoint: datetime, items_count: int = 0) -> None:
+def get_last_run(session: Session, source: str) -> Optional[RunRecord]:
+    """
+    获取最新的运行记录
+
+    Args:
+        session: 数据库会话
+        source: 数据源
+
+    Returns:
+        RunRecord 或 None
+    """
+    return session.query(RunRecord).filter_by(source=source).order_by(RunRecord.created_at.desc()).first()
+
+
+def update_checkpoint(
+    session: Session,
+    source: str,
+    checkpoint: datetime,
+    items_count: int = 0,
+    *,
+    cursor: Optional[str] = None,
+    summary_json: Optional[str] = None,
+) -> None:
     """
     更新巡检检查点
 
@@ -274,6 +311,12 @@ def update_checkpoint(session: Session, source: str, checkpoint: datetime, items
         checkpoint: 检查点时间
         items_count: 本次巡检抓取的项目数
     """
-    record = RunRecord(source=source, last_checkpoint=checkpoint, items_count=items_count)
+    record = RunRecord(
+        source=source,
+        last_checkpoint=checkpoint,
+        items_count=items_count,
+        cursor=cursor,
+        summary_json=summary_json,
+    )
     session.add(record)
 

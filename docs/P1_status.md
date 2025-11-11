@@ -35,6 +35,9 @@
 3. **仓库简化**
    - 移除了独立的 `ingest_crossref_metadata.py`、`ingest_openalex.py`、`ingest_unpaywall.py`，减少脚本分散。
    - 元数据接口现由 `papergazer.utils` 直接导出，方便后续批处理或服务端复用。
+4. **运行记录与摘要**
+   - `RunRecord` 新增 `cursor` 与 `summary_json` 字段，`enrich_*` 回写运行摘要并更新检查点。
+   - `daily_ingest.py --enrich-*` 默认按上次运行的 `ingested_at` 游标增量处理，日志中打印请求统计。
 
 ### 下一步建议
 - 启动 GROBID 服务后，去掉 `--dry-run` 实际生成 TEI（需配置 `grobid.enabled=true` 并确保服务可达）。
