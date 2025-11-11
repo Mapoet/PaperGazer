@@ -5,10 +5,8 @@
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -18,11 +16,12 @@ from papergazer.config import load_config
 from papergazer.utils import (
     analyze_abstracts_by_days,
     analyze_authors_by_days,
-    analyze_oa_status_by_days,
     analyze_venues_by_days,
     get_papers_by_days,
 )
 from papergazer.utils import setup_logging
+from papergazer.analytics.concepts import analyze_concepts as analyze_concepts_module  # type: ignore[import]
+from papergazer.analytics.oa import monitor_oa as monitor_oa_module  # type: ignore[import]
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -44,14 +43,11 @@ def create_parser() -> argparse.ArgumentParser:
   # 作者分析（最近7天）
   %(prog)s authors 7
   
-  # 摘要分析（最近30天，仅arxiv和crossref）
-  %(prog)s abstracts 30 --sources arxiv crossref
+  # 同时执行作者与期刊分析（最近30天）
+  %(prog)s authors venues 30 --top 20
   
-  # OA状态分析（最近7天）
-  %(prog)s oa 7
-  
-  # 期刊/会议分析（最近30天）
-  %(prog)s venues 30 --top 20
+  # 概念热度与 OA 仪表盘（窗口 60 天）
+  %(prog)s concepts oa 30 --window-days 60 --concept-persist
   
   # 论文列表（最近7天，限制100条）
   %(prog)s list 7 --limit 100
@@ -63,10 +59,11 @@ def create_parser() -> argparse.ArgumentParser:
 
     # 分析类型（必需位置参数）
     parser.add_argument(
-        "analysis_type",
+        "analysis_types",
         type=str,
-        choices=["authors", "abstracts", "oa", "venues", "list"],
-        help="分析类型: authors(作者), abstracts(摘要), oa(开放获取), venues(期刊/会议), list(论文列表)",
+        nargs="+",
+        choices=["authors", "abstracts", "oa", "venues", "list", "concepts"],
+        help="指定要执行的一个或多个分析类型",
     )
 
     # 天数（必需位置参数）
@@ -87,22 +84,64 @@ def create_parser() -> argparse.ArgumentParser:
         help="指定数据源列表（默认：所有数据源）",
     )
 
-    # 限制数量（可选参数，主要用于list类型）
+    # 限制数量（可选参数，主要用于 list / concepts 类型）
     parser.add_argument(
         "-l",
         "--limit",
         type=int,
         default=100,
-        help="限制返回数量（默认：100，仅用于list类型）",
+        help="限制返回数量（默认：100，用于 list 类型，可作为概念分析默认 limit）",
     )
 
-    # Top N（可选参数，用于authors和venues类型）
+    parser.add_argument(
+        "--concept-limit",
+        type=int,
+        help="概念分析处理的最大论文数量（覆盖 --limit）",
+    )
+
+    # Top N（可选参数，用于 authors / venues / concepts 类型）
     parser.add_argument(
         "-t",
         "--top",
         type=int,
         default=10,
-        help="显示Top N结果（默认：10，用于authors和venues类型）",
+        help="显示 Top N 结果（默认：10，用于 authors / venues / concepts）",
+    )
+
+    parser.add_argument(
+        "--window-days",
+        type=int,
+        help="高级分析窗口大小（概念热度 / OA 仪表盘，默认同 days）",
+    )
+
+    parser.add_argument(
+        "--concept-dry-run",
+        action="store_true",
+        help="概念分析 dry-run，不写入数据库",
+    )
+
+    parser.add_argument(
+        "--concept-persist",
+        action="store_true",
+        help="将概念热度写入 analytics_concepts",
+    )
+
+    parser.add_argument(
+        "--oa-dry-run",
+        action="store_true",
+        help="OA 仪表盘 dry-run，不写入数据库",
+    )
+
+    parser.add_argument(
+        "--oa-persist",
+        action="store_true",
+        help="将 OA 指标写入 analytics_oa",
+    )
+
+    parser.add_argument(
+        "--oa-window-days",
+        type=int,
+        help="OA 仪表盘的窗口大小（覆盖 --window-days）",
     )
 
     # 配置文件路径（可选参数）
@@ -111,7 +150,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--config",
         type=str,
         default=None,
-        help="配置文件路径（默认：自动查找config.test.yaml或config.yaml）",
+        help="配置文件路径（默认：自动查找 config.test.yaml 或 config.yaml）",
     )
 
     # 输出格式（可选参数）
@@ -168,8 +207,7 @@ def main():
         parser.print_help()
         return 1
 
-    # 提取参数
-    analysis_type = args.analysis_type.lower()
+    analysis_types = [atype.lower() for atype in args.analysis_types]
     days = args.days
     sources = args.sources
     limit = args.limit
@@ -178,7 +216,7 @@ def main():
     verbose = args.verbose
 
     if verbose:
-        console.print(f"[dim]分析类型: {analysis_type}[/dim]")
+        console.print(f"[dim]分析类型: {', '.join(analysis_types)}[/dim]")
         console.print(f"[dim]查询天数: {days}[/dim]")
         console.print(f"[dim]数据源: {sources or '全部'}[/dim]")
         console.print(f"[dim]输出格式: {output_format}[/dim]")
@@ -195,7 +233,6 @@ def main():
         config_path = project_root / "configs" / "config.test.yaml"
         if not config_path.exists():
             config_path = project_root / "configs" / "config.yaml"
-        
         if not config_path.exists():
             console.print(f"[bold red]配置文件不存在，请先创建配置文件[/bold red]")
             console.print(f"参考: configs/config.yaml.example")
@@ -204,186 +241,239 @@ def main():
     try:
         config = load_config(config_path)
         setup_logging(config.logging)
-        
+
         # 初始化数据库
         from papergazer.store.db import init_db
+
         init_db(config.store.db_path)
-        
+
         if verbose:
             console.print(f"[dim]配置文件: {config_path}[/dim]")
             console.print(f"[dim]数据库路径: {config.store.db_path}[/dim]")
-        
+
     except Exception as e:
         console.print(f"[bold red]配置加载失败: {e}[/bold red]")
         return 1
 
     try:
-        if analysis_type == "authors":
-            result = analyze_authors_by_days(days, sources, top_n=top_n)
+        for analysis_type in analysis_types:
+            console.print(f"\n[bold green]>>> 开始 {analysis_type} 分析[/bold green]")
 
-            table = Table(title=f"作者分析（最近 {days} 天）")
-            table.add_column("排名", style="cyan")
-            table.add_column("作者", style="yellow")
-            table.add_column("论文数", style="green")
-            table.add_column("机构", style="blue", max_width=30)
+            if analysis_type == "authors":
+                result = analyze_authors_by_days(days, sources, top_n=top_n)
 
-            for idx, author in enumerate(result["top_authors"], 1):
-                affiliations = ", ".join(author["affiliations"][:2])
-                if len(author["affiliations"]) > 2:
-                    affiliations += "..."
-                table.add_row(
-                    str(idx),
-                    author["name"],
-                    str(author["count"]),
-                    affiliations or "未知",
-                )
+                table = Table(title=f"作者分析（最近 {days} 天）")
+                table.add_column("排名", style="cyan")
+                table.add_column("作者", style="yellow")
+                table.add_column("论文数", style="green")
+                table.add_column("机构", style="blue", max_width=30)
 
-            console.print(table)
-            console.print(f"\n[cyan]总作者数: {result['total_authors']}[/cyan]")
-            console.print(f"[cyan]总论文数: {result['total_papers']}[/cyan]")
-
-        elif analysis_type == "abstracts":
-            result = analyze_abstracts_by_days(days, sources)
-
-            console.print(f"\n[bold cyan]摘要分析（最近 {days} 天）[/bold cyan]")
-            console.print(f"  总论文数: {result['total_papers']}")
-            console.print(f"  有摘要: {result['abstracts_with']}")
-            console.print(f"  无摘要: {result['abstracts_without']}")
-            console.print(f"  覆盖率: {result['coverage_rate']:.2%}")
-            console.print(f"  平均长度: {result['average_length']:.0f} 字符")
-            console.print(f"  最短: {result['min_length']} 字符")
-            console.print(f"  最长: {result['max_length']} 字符")
-
-            if result["source_stats"]:
-                table = Table(title="各数据源摘要统计")
-                table.add_column("数据源", style="cyan")
-                table.add_column("有摘要", style="green")
-                table.add_column("无摘要", style="yellow")
-                table.add_column("平均长度", style="blue")
-
-                for source, stats in result["source_stats"].items():
-                    avg_len = (
-                        stats["total_length"] / stats["with"]
-                        if stats["with"] > 0
-                        else 0
-                    )
+                for idx, author in enumerate(result["top_authors"], 1):
+                    affiliations = ", ".join(author["affiliations"][:2])
+                    if len(author["affiliations"]) > 2:
+                        affiliations += "..."
                     table.add_row(
-                        source.upper(),
-                        str(stats["with"]),
-                        str(stats["without"]),
-                        f"{avg_len:.0f}",
+                        str(idx),
+                        author["name"],
+                        str(author["count"]),
+                        affiliations or "未知",
                     )
 
                 console.print(table)
+                console.print(f"\n[cyan]总作者数: {result['total_authors']}[/cyan]")
+                console.print(f"[cyan]总论文数: {result['total_papers']}[/cyan]")
 
-        elif analysis_type == "oa":
-            result = analyze_oa_status_by_days(days, sources)
+            elif analysis_type == "abstracts":
+                result = analyze_abstracts_by_days(days, sources)
 
-            console.print(f"\n[bold cyan]OA状态分析（最近 {days} 天）[/bold cyan]")
-            console.print(f"  总论文数: {result['total_papers']}")
-            console.print(f"  开放获取: {result['oa_count']}")
-            console.print(f"  非开放获取: {result['non_oa_count']}")
-            console.print(f"  未知: {result['unknown_count']}")
-            console.print(f"  OA率: {result['oa_rate']:.2%}")
+                console.print(f"\n[bold cyan]摘要分析（最近 {days} 天）[/bold cyan]")
+                console.print(f"  总论文数: {result['total_papers']}")
+                console.print(f"  有摘要: {result['abstracts_with']}")
+                console.print(f"  无摘要: {result['abstracts_without']}")
+                console.print(f"  覆盖率: {result['coverage_rate']:.2%}")
+                console.print(f"  平均长度: {result['average_length']:.0f} 字符")
+                console.print(f"  最短: {result['min_length']} 字符")
+                console.print(f"  最长: {result['max_length']} 字符")
 
-            if result["oa_sources"]:
-                console.print(f"\n[cyan]OA来源分布:[/cyan]")
-                for source, count in result["oa_sources"].items():
-                    console.print(f"  {source}: {count}")
+                if result["source_stats"]:
+                    table = Table(title="各数据源摘要统计")
+                    table.add_column("数据源", style="cyan")
+                    table.add_column("有摘要", style="green")
+                    table.add_column("无摘要", style="yellow")
+                    table.add_column("平均长度", style="blue")
 
-            if result["source_stats"]:
-                table = Table(title="各数据源OA统计")
-                table.add_column("数据源", style="cyan")
-                table.add_column("OA", style="green")
-                table.add_column("非OA", style="yellow")
-                table.add_column("未知", style="blue")
-                table.add_column("总计", style="magenta")
+                    for source, stats in result["source_stats"].items():
+                        avg_len = (
+                            stats["total_length"] / stats["with"]
+                            if stats["with"] > 0
+                            else 0
+                        )
+                        table.add_row(
+                            source.upper(),
+                            str(stats["with"]),
+                            str(stats["without"]),
+                            f"{avg_len:.0f}",
+                        )
 
-                for source, stats in result["source_stats"].items():
-                    table.add_row(
-                        source.upper(),
-                        str(stats["oa"]),
-                        str(stats["non_oa"]),
-                        str(stats["unknown"]),
-                        str(stats["total"]),
-                    )
+                    console.print(table)
+
+            elif analysis_type == "oa":
+                oa_window = args.oa_window_days or args.window_days or days
+                oa_result = monitor_oa_module(
+                    config,
+                    window_days=oa_window,
+                    sources=sources,
+                    persist=args.oa_persist,
+                    dry_run=args.oa_dry_run,
+                )
+
+                table = Table(title=f"OA 指标：{oa_result['window_start'].date()} ~ {oa_result['window_end'].date()}")
+                table.add_column("指标", style="cyan")
+                table.add_column("数值", style="green", justify="right")
+
+                table.add_row("论文总数", str(oa_result["total_count"]))
+                table.add_row("OA 总数", str(oa_result["oa_count"]))
+                table.add_row("Gold/Hybrid", str(oa_result["gold_count"]))
+                table.add_row("Green", str(oa_result["green_count"]))
+                table.add_row("Bronze", str(oa_result["bronze_count"]))
+                table.add_row("数据链接数", str(oa_result["data_link_count"]))
+                table.add_row("代码链接数", str(oa_result["code_link_count"]))
+                table.add_row("dry_run", str(args.oa_dry_run))
 
                 console.print(table)
 
-        elif analysis_type == "venues":
-            result = analyze_venues_by_days(days, sources, top_n=top_n)
+                if oa_result.get("license_counter"):
+                    license_table = Table(title="常见许可")
+                    license_table.add_column("License/URL", style="yellow")
+                    license_table.add_column("Count", style="green", justify="right")
+                    for name, cnt in oa_result["license_counter"].most_common(10):
+                        license_table.add_row(name, str(cnt))
+                    console.print(license_table)
 
-            table = Table(title=f"期刊/会议分析（最近 {days} 天）")
-            table.add_column("排名", style="cyan", justify="right")
-            table.add_column("期刊/会议", style="yellow")
-            table.add_column("论文数", style="green", justify="right")
-            table.add_column("数据源", style="blue")
+                if oa_result.get("oa_status_counter"):
+                    status_table = Table(title="OA 状态分布")
+                    status_table.add_column("Status", style="magenta")
+                    status_table.add_column("Count", style="green", justify="right")
+                    for status_name, cnt in oa_result["oa_status_counter"].most_common():
+                        status_table.add_row(status_name, str(cnt))
+                    console.print(status_table)
 
-            for idx, venue_info in enumerate(result["top_venues"], 1):
-                sources_str = ", ".join(venue_info["sources"])
-                # 使用 Text 对象避免方括号被解释为样式标记
-                venue_text = Text(venue_info["venue"], style="yellow")
-                table.add_row(
-                    str(idx),
-                    venue_text,
-                    str(venue_info["count"]),
-                    sources_str,
+                if oa_result.get("persisted"):
+                    console.print("[green]已写入 analytics_oa 表。[/green]")
+                else:
+                    console.print(f"[cyan]persist={args.oa_persist}, dry_run={args.oa_dry_run}[/cyan]")
+
+            elif analysis_type == "venues":
+                result = analyze_venues_by_days(days, sources, top_n=top_n)
+
+                table = Table(title=f"期刊/会议分析（最近 {days} 天）")
+                table.add_column("排名", style="cyan", justify="right")
+                table.add_column("期刊/会议", style="yellow")
+                table.add_column("论文数", style="green", justify="right")
+                table.add_column("数据源", style="blue")
+
+                for idx, venue_info in enumerate(result["top_venues"], 1):
+                    sources_str = ", ".join(venue_info["sources"])
+                    venue_text = Text(venue_info["venue"], style="yellow")
+                    table.add_row(
+                        str(idx),
+                        venue_text,
+                        str(venue_info["count"]),
+                        sources_str,
+                    )
+
+                console.print(table)
+                console.print(f"\n[cyan]总期刊/会议数: {result['total_venues']}[/cyan]")
+                console.print(f"[cyan]总论文数: {result['total_papers']}[/cyan]")
+
+            elif analysis_type == "list":
+                papers = get_papers_by_days(days, sources, limit=limit)
+
+                table = Table(title=f"论文列表（最近 {days} 天）")
+                table.add_column("标题", style="cyan", no_wrap=False, max_width=40)
+                table.add_column("来源", style="blue")
+                table.add_column("DOI", style="magenta", max_width=25)
+                table.add_column("发布日期", style="green")
+                table.add_column("OA", style="yellow")
+                table.add_column("摘要", style="cyan")
+
+                display_papers = papers[:limit] if limit else papers
+
+                for paper in display_papers:
+                    title = paper["title"] or "无标题"
+                    if len(title) > 40:
+                        title = title[:37] + "..."
+                    doi = paper["doi"] or "无"
+                    if len(doi) > 25:
+                        doi = doi[:22] + "..."
+                    oa_status = "✅" if paper["is_oa"] else ("❌" if paper["is_oa"] is False else "?")
+                    has_abstract = "✓" if paper["has_abstract"] else "✗"
+
+                    table.add_row(
+                        title,
+                        paper["source"].upper(),
+                        doi,
+                        paper["published_date"] or "未知",
+                        oa_status,
+                        has_abstract,
+                    )
+
+                console.print(table)
+                console.print(f"\n[cyan]共显示 {len(display_papers)} 条记录[/cyan]")
+                if len(papers) > len(display_papers):
+                    console.print(f"[dim]（实际查询到 {len(papers)} 条，已限制显示）[/dim]")
+
+            elif analysis_type == "concepts":
+                concept_limit = args.concept_limit if args.concept_limit is not None else limit
+                window_days = args.window_days or days
+                concept_result = analyze_concepts_module(
+                    config,
+                    window_days=window_days,
+                    since_days=None,
+                    limit=concept_limit,
+                    sources=sources,
+                    top=top_n,
+                    persist=args.concept_persist,
+                    dry_run=args.concept_dry_run,
                 )
 
-            console.print(table)
-            console.print(f"\n[cyan]总期刊/会议数: {result['total_venues']}[/cyan]")
-            console.print(f"[cyan]总论文数: {result['total_papers']}[/cyan]")
+                concepts = concept_result.get("concepts", [])
+                if not concepts:
+                    console.print("[yellow]未解析到有效的概念信息，请确认已补齐 OpenAlex 元数据。[/yellow]")
+                else:
+                    table = Table(title=f"概念热度：{concept_result['window_start'].date()} ~ {concept_result['window_end'].date()}")
+                    table.add_column("Rank", style="cyan", justify="right")
+                    table.add_column("Concept", style="green")
+                    table.add_column("Count", style="magenta", justify="right")
+                    table.add_column("Avg Score", style="yellow", justify="right")
+                    table.add_column("Level", style="blue", justify="right")
 
-        elif analysis_type == "list":
-            papers = get_papers_by_days(days, sources, limit=limit)
+                    for idx, entry in enumerate(concepts, start=1):
+                        level_display = entry["concept_level"] if entry["concept_level"] is not None else "-"
+                        table.add_row(
+                            str(idx),
+                            entry["concept_name"],
+                            str(entry["paper_count"]),
+                            f"{entry['avg_score']:.3f}",
+                            str(level_display),
+                        )
 
-            table = Table(title=f"论文列表（最近 {days} 天）")
-            table.add_column("标题", style="cyan", no_wrap=False, max_width=40)
-            table.add_column("来源", style="blue")
-            table.add_column("DOI", style="magenta", max_width=25)
-            table.add_column("发布日期", style="green")
-            table.add_column("OA", style="yellow")
-            table.add_column("摘要", style="cyan")
+                    console.print(table)
 
-            display_papers = papers[:limit] if limit else papers
-            
-            for paper in display_papers:
-                title = paper["title"] or "无标题"
-                if len(title) > 40:
-                    title = title[:37] + "..."
-                doi = paper["doi"] or "无"
-                if len(doi) > 25:
-                    doi = doi[:22] + "..."
-                oa_status = "✅" if paper["is_oa"] else ("❌" if paper["is_oa"] is False else "?")
-                has_abstract = "✓" if paper["has_abstract"] else "✗"
+                if concept_result.get("persisted"):
+                    console.print("[green]已写入 analytics_concepts 表。[/green]")
+                else:
+                    console.print(f"[cyan]persist={args.concept_persist}, dry_run={args.concept_dry_run}[/cyan]")
 
-                table.add_row(
-                    title,
-                    paper["source"].upper(),
-                    doi,
-                    paper["published_date"] or "未知",
-                    oa_status,
-                    has_abstract,
-                )
-
-            console.print(table)
-            console.print(f"\n[cyan]共显示 {len(display_papers)} 条记录[/cyan]")
-            if len(papers) > len(display_papers):
-                console.print(f"[dim]（实际查询到 {len(papers)} 条，已限制显示）[/dim]")
-
-        else:
-            console.print(f"[bold red]未知的分析类型: {analysis_type}[/bold red]")
-            console.print("支持的类型: authors, abstracts, oa, venues, list")
-            return 1
+        return 0
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
         if verbose:
             import traceback
+
             console.print(traceback.format_exc())
         return 1
-
-    return 0
 
 
 if __name__ == "__main__":

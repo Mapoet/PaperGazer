@@ -27,6 +27,9 @@ from papergazer.utils import (
     enrich_unpaywall_metadata,
     setup_logging,
 )
+from papergazer.analytics.citation import build_citation_graph  # type: ignore[import]
+from papergazer.core.figures import extract_figures_and_tables  # type: ignore[import]
+from papergazer.core.fulltext import generate_tei_for_papers  # type: ignore[import]
 from rich.console import Console
 from rich.table import Table
 
@@ -159,6 +162,46 @@ async def main():
         "--enrich-dry-run",
         action="store_true",
         help="元数据补全 dry-run，仅输出计划不写入数据库",
+    )
+    parser.add_argument(
+        "--skip-tei",
+        action="store_true",
+        help="巡检后跳过 TEI 生成",
+    )
+    parser.add_argument(
+        "--skip-figures",
+        action="store_true",
+        help="巡检后跳过图表抽取",
+    )
+    parser.add_argument(
+        "--skip-citations",
+        action="store_true",
+        help="巡检后跳过引用网络构建",
+    )
+    parser.add_argument(
+        "--post-limit",
+        type=int,
+        help="后处理步骤的最大论文数量",
+    )
+    parser.add_argument(
+        "--post-since-days",
+        type=int,
+        help="后处理仅针对最近 N 天新增的论文",
+    )
+    parser.add_argument(
+        "--post-force",
+        action="store_true",
+        help="后处理强制重新生成/覆盖已有结果",
+    )
+    parser.add_argument(
+        "--post-dry-run",
+        action="store_true",
+        help="后处理 dry-run，仅输出计划不写入数据库",
+    )
+    parser.add_argument(
+        "--post-resolve-local",
+        action="store_true",
+        help="构建引用网络时尝试匹配本地论文 ID",
     )
 
     args = parser.parse_args()
@@ -438,6 +481,73 @@ async def main():
                 f"\n[bold cyan]下载总计: 成功 {download_stats['total_success']} 篇, "
                 f"失败 {download_stats['total_error']} 篇[/bold cyan]"
             )
+
+        post_since_days = args.post_since_days if args.post_since_days is not None else args.days
+        post_limit = args.post_limit
+        post_force = args.post_force
+        post_dry_run = args.post_dry_run
+
+        if not args.skip_tei:
+            console.print("\n[bold green]执行 TEI 生成...[/bold green]")
+            tei_stats = await generate_tei_for_papers(
+                config,
+                limit=post_limit,
+                since_days=post_since_days,
+                force=post_force,
+                dry_run=post_dry_run,
+            )
+            tei_table = Table(title="TEI 生成结果")
+            tei_table.add_column("指标", style="cyan")
+            tei_table.add_column("数值", style="green", justify="right")
+            tei_table.add_row("候选论文数", str(tei_stats["papers"]))
+            tei_table.add_row("已处理论文", str(tei_stats["processed"]))
+            tei_table.add_row("成功数量", str(tei_stats["success"]))
+            tei_table.add_row("跳过数量", str(tei_stats["skipped"]))
+            tei_table.add_row("dry_run", str(tei_stats["dry_run"]))
+            console.print(tei_table)
+
+        if not args.skip_figures:
+            console.print("\n[bold green]执行图表抽取...[/bold green]")
+            figure_stats = extract_figures_and_tables(
+                config,
+                since_days=post_since_days,
+                limit=post_limit,
+                sources=sources,
+                dry_run=post_dry_run,
+                force=post_force,
+                only_missing=not post_force,
+            )
+            fig_table = Table(title="图表抽取结果")
+            fig_table.add_column("指标", style="cyan")
+            fig_table.add_column("数值", style="green", justify="right")
+            fig_table.add_row("候选论文数", str(figure_stats["papers"]))
+            fig_table.add_row("已处理论文", str(figure_stats["processed"]))
+            fig_table.add_row("跳过论文", str(figure_stats["skipped"]))
+            fig_table.add_row("图数量", str(figure_stats["figures"]))
+            fig_table.add_row("表数量", str(figure_stats["tables"]))
+            fig_table.add_row("dry_run", str(figure_stats["dry_run"]))
+            console.print(fig_table)
+
+        if not args.skip_citations:
+            console.print("\n[bold green]构建引用网络...[/bold green]")
+            citation_stats = build_citation_graph(
+                config,
+                since_days=post_since_days,
+                sources=sources,
+                limit=post_limit,
+                dry_run=post_dry_run,
+                force=post_force,
+                resolve_local=args.post_resolve_local,
+            )
+            citation_table = Table(title="引用网络结果")
+            citation_table.add_column("指标", style="cyan")
+            citation_table.add_column("数值", style="green", justify="right")
+            citation_table.add_row("候选论文数", str(citation_stats["papers"]))
+            citation_table.add_row("新增引用边", str(citation_stats["edges"]))
+            citation_table.add_row("关联本地条数", str(citation_stats["resolved"]))
+            citation_table.add_row("跳过论文", str(citation_stats["skipped"]))
+            citation_table.add_row("dry_run", str(post_dry_run))
+            console.print(citation_table)
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
