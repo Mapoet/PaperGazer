@@ -15,6 +15,7 @@ from papergazer.models import PaperMetadata
 from papergazer.sources.europe_pmc import search_articles_by_date
 from papergazer.sources.unpaywall import best_oa
 from papergazer.store.db import get_session, PaperItem, upsert_paper
+from papergazer.utils.db_filters import get_effective_date_filter
 
 logger = logging.getLogger(__name__)
 
@@ -359,7 +360,7 @@ async def query_unpaywall_by_days(
             session.query(PaperItem)
             .filter(PaperItem.doi.isnot(None))
             .filter(PaperItem.doi != "")
-            .filter(PaperItem.updated_date >= cutoff_date)
+            .filter(get_effective_date_filter(cutoff_date))
             .order_by(PaperItem.updated_date.desc())
             .limit(limit if limit else 1000)
             .all()

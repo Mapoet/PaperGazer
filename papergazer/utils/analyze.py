@@ -11,31 +11,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from papergazer.store.db import get_session, PaperItem, init_db
-from sqlalchemy import and_, or_, func, cast, Date
+from papergazer.utils.db_filters import get_effective_date_filter
+from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
-
-
-def _get_effective_date_filter(cutoff_date: datetime):
-    """
-    获取有效的日期过滤条件
-    
-    优先使用 updated_date，如果为 None 则使用 published_date，再为 None 则使用 ingested_at
-    
-    Args:
-        cutoff_date: 截止日期
-    
-    Returns:
-        SQLAlchemy 过滤条件
-    """
-    # 将 published_date (Date) 转换为 datetime 以便比较
-    # 使用 coalesce 获取第一个非空的日期字段
-    effective_date = func.coalesce(
-        PaperItem.updated_date,
-        func.datetime(PaperItem.published_date),  # 将 Date 转换为 datetime
-        PaperItem.ingested_at
-    )
-    return effective_date >= cutoff_date
 
 
 def _ensure_db_initialized(db_path: str | Path | None = None) -> None:
@@ -101,7 +80,7 @@ def analyze_authors_by_days(
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = session.query(PaperItem).filter(_get_effective_date_filter(cutoff_date))
+        query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
@@ -183,7 +162,7 @@ def analyze_abstracts_by_days(
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = session.query(PaperItem).filter(_get_effective_date_filter(cutoff_date))
+        query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
@@ -249,7 +228,7 @@ def analyze_oa_status_by_days(
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = session.query(PaperItem).filter(_get_effective_date_filter(cutoff_date))
+        query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
@@ -317,7 +296,7 @@ def analyze_venues_by_days(
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = session.query(PaperItem).filter(_get_effective_date_filter(cutoff_date))
+        query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
@@ -377,7 +356,7 @@ def get_papers_by_days(
     try:
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
-        query = session.query(PaperItem).filter(_get_effective_date_filter(cutoff_date))
+        query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
         if sources:
             query = query.filter(PaperItem.source.in_(sources))

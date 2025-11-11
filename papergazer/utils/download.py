@@ -11,6 +11,7 @@ from typing import List, Optional
 from papergazer.config import Settings
 from papergazer.core.fetch import fetch_by_identifier
 from papergazer.store.db import get_session, PaperItem
+from papergazer.utils.db_filters import get_effective_date_filter
 from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ async def download_arxiv_papers(
         # 如果指定了天数，只下载最近 N 天的
         if days:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-            query = query.filter(PaperItem.updated_date >= cutoff_date)
+            query = query.filter(get_effective_date_filter(cutoff_date))
 
         # 按更新日期排序
         query = query.order_by(PaperItem.updated_date.desc())
@@ -129,7 +130,7 @@ async def download_oa_papers(
         # 如果指定了天数
         if days:
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-            query = query.filter(PaperItem.updated_date >= cutoff_date)
+            query = query.filter(get_effective_date_filter(cutoff_date))
 
         # 按更新日期排序
         query = query.order_by(PaperItem.updated_date.desc())

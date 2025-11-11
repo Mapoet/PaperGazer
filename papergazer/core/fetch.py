@@ -76,11 +76,21 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
     Raises:
         FetchError: 下载失败
     """
+    default_headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    if "mdpi.com" in url:
+        default_headers.setdefault("Referer", "https://www.mdpi.com/")
+
     try:
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,  # 明确启用自动跟随重定向
             max_redirects=10,  # 允许最多 10 次重定向
+            headers=default_headers,
         ) as client:
             response = await client.get(url, follow_redirects=True)
             
