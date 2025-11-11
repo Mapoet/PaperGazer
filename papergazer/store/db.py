@@ -18,6 +18,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     Index,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 
@@ -51,7 +52,20 @@ class PaperItem(Base):
     oa_source = Column(String(50))  # 'unpaywall' | 'eupmc' | 'arxiv'
     oa_pdf_url = Column(Text)
     pdf_path = Column(Text)
+    tei_path = Column(Text)
     abstract_jats = Column(Text)
+    crossref_json = Column(Text)
+    openalex_json = Column(Text)
+    unpaywall_json = Column(Text)
+    references_json = Column(Text)
+    funder_json = Column(Text)
+    license_json = Column(Text)
+    concepts_json = Column(Text)
+    host_venue_json = Column(Text)
+    referenced_work_ids_json = Column(Text)
+    oa_status = Column(String(50))
+    oa_license = Column(String(100))
+    cited_by_count = Column(Integer)
     ingested_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     hash = Column(String(64))  # 文件哈希（SHA256）
 
@@ -145,6 +159,8 @@ def init_db(db_path: str | Path) -> None:
     # 创建表
     Base.metadata.create_all(_engine)
 
+    _ensure_schema(_engine)
+
     # 创建会话工厂
     _SessionLocal = sessionmaker(bind=_engine, autocommit=False, autoflush=False)
 
@@ -163,6 +179,36 @@ def get_session() -> Session:
         raise RuntimeError("数据库未初始化，请先调用 init_db()")
 
     return _SessionLocal()
+
+
+def _ensure_schema(engine) -> None:
+    """
+    确保数据库表包含最新的列（用于轻量级 schema 迁移）
+    """
+
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(items)"))
+        columns = {row[1] for row in result}
+
+        def add_column(name: str, col_type: str) -> None:
+            nonlocal columns
+            if name not in columns:
+                conn.execute(text(f"ALTER TABLE items ADD COLUMN {name} {col_type}"))
+                columns.add(name)
+
+        add_column("tei_path", "TEXT")
+        add_column("crossref_json", "TEXT")
+        add_column("openalex_json", "TEXT")
+        add_column("unpaywall_json", "TEXT")
+        add_column("references_json", "TEXT")
+        add_column("funder_json", "TEXT")
+        add_column("license_json", "TEXT")
+        add_column("concepts_json", "TEXT")
+        add_column("host_venue_json", "TEXT")
+        add_column("referenced_work_ids_json", "TEXT")
+        add_column("oa_status", "TEXT")
+        add_column("oa_license", "TEXT")
+        add_column("cited_by_count", "INTEGER")
 
 
 def upsert_paper(session: Session, metadata: PaperMetadata) -> PaperItem:

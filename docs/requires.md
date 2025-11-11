@@ -325,3 +325,7 @@ schedule:
 [7]: https://docs.openalex.org/api-entities/works/work-object/location-object?utm_source=chatgpt.com "Location object"
 [8]: https://www.crossref.org/blog/using-the-crossref-rest-api.-part-12-with-europe-pmc/?utm_source=chatgpt.com "Using the Crossref REST API. Part 12 (with Europe PMC)"
 [9]: https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api/?utm_source=chatgpt.com "Tips for using the Crossref REST API"
+
+
+以 @INTELLIGENT_PLATFORM_ROADMAP.md 为总纲， 执行并检查 @INTELLIGENT_PLATFORM_ACTION_PLAN.md 中的P0阶段。
+结合 @P0_EXECUTION_REPORT.md 进行执行与检查报告

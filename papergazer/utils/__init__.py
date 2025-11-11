@@ -11,8 +11,22 @@ from .analyze import (
 )
 from .daily_ingest import daily_ingest_all, daily_ingest_sources
 from .download import download_all_papers, download_arxiv_papers, download_oa_papers
-from .grobid import GrobidResult, process_fulltext_document, process_fulltext_document_sync
+from .grobid import (
+    GrobidDisabledError,
+    GrobidResult,
+    process_fulltext_document,
+    process_fulltext_document_sync,
+)
 from .logging import setup_logging
+from .metadata import (
+    fetch_crossref_metadata,
+    fetch_openalex_metadata,
+    fetch_unpaywall_metadata,
+    MetadataFetchError,
+    enrich_crossref_metadata,
+    enrich_openalex_metadata,
+    enrich_unpaywall_metadata,
+)
 from .query import (
     query_all_sources_by_days,
     query_arxiv_by_days,
@@ -53,5 +67,13 @@ __all__ = [
     "process_fulltext_document",
     "process_fulltext_document_sync",
     "GrobidResult",
+    "GrobidDisabledError",
+    "fetch_crossref_metadata",
+    "fetch_openalex_metadata",
+    "fetch_unpaywall_metadata",
+    "MetadataFetchError",
+    "enrich_crossref_metadata",
+    "enrich_openalex_metadata",
+    "enrich_unpaywall_metadata",
 ]
 

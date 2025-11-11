@@ -22,8 +22,11 @@ from papergazer.utils import (
     download_all_papers,
     download_arxiv_papers,
     download_oa_papers,
+    enrich_crossref_metadata,
+    enrich_openalex_metadata,
+    enrich_unpaywall_metadata,
+    setup_logging,
 )
-from papergazer.utils import setup_logging
 from rich.console import Console
 from rich.table import Table
 
@@ -125,6 +128,37 @@ async def main():
         "--config",
         type=str,
         help="配置文件路径（默认: configs/config.test.yaml 或 configs/config.yaml）",
+    )
+    parser.add_argument(
+        "--enrich-metadata",
+        action="store_true",
+        help="执行外部元数据补全（Crossref/OpenAlex/Unpaywall）",
+    )
+    parser.add_argument(
+        "--enrich-sources",
+        nargs="+",
+        choices=["crossref", "openalex", "unpaywall"],
+        help="指定要补全的元数据来源",
+    )
+    parser.add_argument(
+        "--enrich-limit",
+        type=int,
+        help="元数据补全最大处理数量",
+    )
+    parser.add_argument(
+        "--enrich-since-days",
+        type=int,
+        help="仅补全最近 N 天内新增的论文",
+    )
+    parser.add_argument(
+        "--enrich-force",
+        action="store_true",
+        help="忽略已有元数据，强制重新补全",
+    )
+    parser.add_argument(
+        "--enrich-dry-run",
+        action="store_true",
+        help="元数据补全 dry-run，仅输出计划不写入数据库",
     )
 
     args = parser.parse_args()
@@ -323,6 +357,51 @@ async def main():
         total_count = results.get("total_count", 0)
         console.print(f"\n[bold cyan]总计: {total_count} 条记录[/bold cyan]")
         console.print(f"[cyan]执行时间: {results.get('timestamp', '未知')}[/cyan]")
+
+        enrich_sources = set()
+        if args.enrich_metadata:
+            enrich_sources.update({"crossref", "openalex", "unpaywall"})
+        if args.enrich_sources:
+            enrich_sources.update(args.enrich_sources)
+
+        if enrich_sources:
+            console.print("\n[bold cyan]开始执行元数据补全[/bold cyan]")
+            if "crossref" in enrich_sources:
+                stats = enrich_crossref_metadata(
+                    config.mailto,
+                    limit=args.enrich_limit,
+                    since_days=args.enrich_since_days,
+                    force=args.enrich_force,
+                    dry_run=args.enrich_dry_run,
+                )
+                console.print(
+                    f"[green]Crossref[/green] 成功 {stats['success']} / 跳过 {stats['skipped']} / 失败 {stats['failed']} "
+                    f"(总 {stats['total']})"
+                )
+            if "openalex" in enrich_sources:
+                stats = enrich_openalex_metadata(
+                    config.mailto,
+                    limit=args.enrich_limit,
+                    since_days=args.enrich_since_days,
+                    force=args.enrich_force,
+                    dry_run=args.enrich_dry_run,
+                )
+                console.print(
+                    f"[green]OpenAlex[/green] 成功 {stats['success']} / 跳过 {stats['skipped']} / 失败 {stats['failed']} "
+                    f"(总 {stats['total']})"
+                )
+            if "unpaywall" in enrich_sources:
+                stats = enrich_unpaywall_metadata(
+                    config.mailto,
+                    limit=args.enrich_limit,
+                    since_days=args.enrich_since_days,
+                    force=args.enrich_force,
+                    dry_run=args.enrich_dry_run,
+                )
+                console.print(
+                    f"[green]Unpaywall[/green] 成功 {stats['success']} / 跳过 {stats['skipped']} / 失败 {stats['failed']} "
+                    f"(总 {stats['total']})"
+                )
 
         # 如果启用了下载功能
         if args.download:
