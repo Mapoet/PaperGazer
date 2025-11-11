@@ -11,6 +11,7 @@ from .analyze import (
 )
 from .daily_ingest import daily_ingest_all, daily_ingest_sources
 from .download import download_all_papers, download_arxiv_papers, download_oa_papers
+from .grobid import GrobidResult, process_fulltext_document, process_fulltext_document_sync
 from .logging import setup_logging
 from .query import (
     query_all_sources_by_days,
@@ -49,5 +50,8 @@ __all__ = [
     "download_all_papers",
     # 工具函数
     "setup_logging",
+    "process_fulltext_document",
+    "process_fulltext_document_sync",
+    "GrobidResult",
 ]
 

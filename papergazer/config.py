@@ -60,6 +60,28 @@ class LoggingConfig(BaseSettings):
     file: str = Field(default="./data/papergazer.log", description="日志文件路径")
 
 
+class GrobidConfig(BaseSettings):
+    """GROBID 配置"""
+
+    enabled: bool = Field(default=False, description="是否启用 GROBID 服务")
+    base_url: str = Field(
+        default="http://localhost:8070",
+        description="GROBID 服务基础地址，例如 http://localhost:8070",
+    )
+    timeout_seconds: float = Field(default=60.0, description="请求超时时间（秒）")
+    output_dir: Optional[str] = Field(
+        default=None,
+        description="TEI 输出目录（为空则与 PDF 同目录或使用默认数据目录）",
+    )
+    process_fulltext_path: str = Field(
+        default="/api/processFulltextDocument",
+        description="GROBID fulltext 接口路径",
+    )
+    tei_coordinates: bool = Field(
+        default=False, description="是否请求返回坐标信息（teicoordinates 参数）"
+    )
+
+
 class RetryConfig(BaseSettings):
     """重试配置"""
 
@@ -91,6 +113,7 @@ class Settings(BaseSettings):
     store: StoreConfig = Field(default_factory=StoreConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    grobid: GrobidConfig = Field(default_factory=GrobidConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
 
 

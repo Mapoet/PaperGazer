@@ -254,6 +254,14 @@ journals:
       - "0920-5691"           # print
       - "1573-1405"           # online
 
+# GROBID 配置
+grobid:
+  enabled: false
+  base_url: "http://localhost:8070"
+  timeout_seconds: 60
+  output_dir: "./data/test/tei"
+  tei_coordinates: false
+
 # 存储配置
 store:
   root: "./data/test"
