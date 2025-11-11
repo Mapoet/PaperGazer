@@ -39,9 +39,20 @@ journals:
       - "0092-8674"           # print
       - "1097-4172"           # online
     # 地学领域权威期刊
+    # Nature 地学系列期刊
     nature_geoscience:
       - "1752-0894"           # print
       - "1752-0908"           # online
+    nature_climate_change:
+      - "1758-678X"           # print
+      - "1758-6798"           # online
+    nature_communications_earth_environment:
+      - "2662-4979"           # online
+    nature_reviews_earth_environment:
+      - "2662-138X"           # online
+    nature_water:
+      - "2731-6084"           # online
+    # 其他地学顶级期刊
     geology:
       - "0091-7613"           # print
       - "1943-2682"           # online
@@ -95,6 +106,98 @@ journals:
       - "2169-8961"           # online (JGR Biogeosciences)
     journal_of_geophysical_research_earth_surface:
       - "2169-9003"           # online (JGR Earth Surface)
+    # AGU (American Geophysical Union) 期刊
+    water_resources_research:
+      - "0043-1397"           # print
+      - "1944-7973"           # online
+    geochemistry_geophysics_geosystems:
+      - "1525-2027"           # online
+    global_biogeochemical_cycles:
+      - "0886-6236"           # print
+      - "1944-9224"           # online
+    paleoceanography_and_paleoclimatology:
+      - "2572-4517"           # online
+    earth_and_space_science:
+      - "2333-5084"           # online
+    tectonics:
+      - "0278-7407"           # print
+      - "1944-9194"           # online
+    space_weather:
+      - "1542-7390"           # online
+    agu_advances:
+      - "2576-604X"           # online
+    earths_future:
+      - "2328-4277"           # online
+    journal_of_advances_in_modeling_earth_systems:
+      - "1942-2466"           # online
+    # EGU (European Geosciences Union) / Copernicus 期刊
+    atmospheric_chemistry_and_physics:
+      - "1680-7316"           # print
+      - "1680-7324"           # online
+    climate_of_the_past:
+      - "1814-9324"           # print
+      - "1814-9332"           # online
+    earth_system_dynamics:
+      - "2190-4979"           # print
+      - "2190-4987"           # online
+    geoscientific_model_development:
+      - "1991-959X"           # print
+      - "1991-9603"           # online
+    hydrology_and_earth_system_sciences:
+      - "1027-5606"           # print
+      - "1607-7938"           # online
+    the_cryosphere:
+      - "1994-0416"           # print
+      - "1994-0424"           # online
+    solid_earth:
+      - "1869-9510"           # print
+      - "1869-9529"           # online
+    ocean_science:
+      - "1812-0784"           # print
+      - "1812-0792"           # online
+    biogeosciences:
+      - "1726-4170"           # print
+      - "1726-4189"           # online
+    natural_hazards_and_earth_system_sciences:
+      - "1561-8633"           # print
+      - "1684-9981"           # online
+    atmospheric_measurement_techniques:
+      - "1867-1381"           # print
+      - "1867-8548"           # online
+    # 空间科学与导航定位期刊
+    gps_solutions:
+      - "1080-5370"           # print
+      - "1521-1886"           # online
+    advances_in_space_research:
+      - "0273-1177"           # print
+      - "1879-1948"           # online
+    journal_of_atmospheric_and_solar_terrestrial_physics:
+      - "1364-6826"           # print
+      - "1879-1824"           # online
+    journal_of_geodesy:
+      - "0949-7714"           # print
+      - "1432-1394"           # online
+    journal_of_space_weather_and_space_climate:
+      - "2115-7251"           # online
+    radio_science:
+      - "0048-6604"           # print
+      - "1944-799X"           # online
+    planetary_and_space_science:
+      - "0032-0633"           # print
+      - "1873-5088"           # online
+    space_science_reviews:
+      - "0038-6308"           # print
+      - "1572-9672"           # online
+    # 其他地学与大气科学期刊
+    journal_of_climate:
+      - "0894-8755"           # print
+      - "1520-0442"           # online
+    geophysical_journal_international:
+      - "0956-540X"           # print
+      - "1365-246X"           # online
+    annales_geophysicae:
+      - "0992-7689"           # print
+      - "1432-0576"           # online
     # 遥感领域权威期刊
     remote_sensing_of_environment:
       - "0034-4257"           # print

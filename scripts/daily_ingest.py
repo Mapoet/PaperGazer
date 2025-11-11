@@ -208,11 +208,85 @@ async def main():
         init_db(config.store.db_path)
         console.print(f"[green]数据库已初始化: {config.store.db_path}[/green]")
 
-        # 执行巡检
-        if sources:
-            results = await daily_ingest_sources(config, sources, since=since, until=until)
+        # 检查时间跨度，如果太长则分批处理
+        batch_size_days = 3  # 每批处理 3 天
+        
+        if since is not None and until is not None:
+            time_span = (until - since).days
+        elif since is not None:
+            time_span = (datetime.now(timezone.utc) - since).days
         else:
-            results = await daily_ingest_all(config, since=since, until=until)
+            time_span = 0
+        
+        # 如果时间跨度大于 batch_size_days 天，进行分批处理
+        if time_span > batch_size_days:
+            console.print(f"[yellow]时间跨度为 {time_span} 天，将分批处理（每批 {batch_size_days} 天）以避免数据量过大[/yellow]")
+            
+            # 初始化合并结果
+            merged_results = {
+                "results": {},
+                "total_count": 0,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            
+            # 计算批次
+            start_time = since if since else datetime.now(timezone.utc) - timedelta(days=time_span)
+            end_time = until if until else datetime.now(timezone.utc)
+            
+            current_start = start_time
+            batch_num = 0
+            
+            while current_start < end_time:
+                batch_num += 1
+                current_end = min(current_start + timedelta(days=batch_size_days), end_time)
+                
+                console.print(f"\n[cyan]批次 {batch_num}: {current_start.date()} 至 {current_end.date()}[/cyan]")
+                
+                # 执行当前批次的巡检
+                if sources:
+                    batch_results = await daily_ingest_sources(config, sources, since=current_start, until=current_end)
+                else:
+                    batch_results = await daily_ingest_all(config, since=current_start, until=current_end)
+                
+                # 合并结果
+                for source, result in batch_results["results"].items():
+                    if source not in merged_results["results"]:
+                        merged_results["results"][source] = {
+                            "status": result.get("status"),
+                            "count": 0,
+                            "stats": {},
+                            "error": result.get("error"),
+                        }
+                    
+                    # 累加计数
+                    if result.get("status") == "success":
+                        merged_results["results"][source]["count"] = (
+                            merged_results["results"][source].get("count", 0) + result.get("count", 0)
+                        )
+                        
+                        # 如果有 stats（如 unpaywall），合并统计信息
+                        if "stats" in result:
+                            if not merged_results["results"][source].get("stats"):
+                                merged_results["results"][source]["stats"] = {}
+                            
+                            for key, value in result["stats"].items():
+                                merged_results["results"][source]["stats"][key] = (
+                                    merged_results["results"][source]["stats"].get(key, 0) + value
+                                )
+                
+                merged_results["total_count"] += batch_results.get("total_count", 0)
+                
+                # 移动到下一批
+                current_start = current_end
+            
+            console.print(f"\n[bold green]分批处理完成，共 {batch_num} 批[/bold green]")
+            results = merged_results
+        else:
+            # 时间跨度不大，正常执行
+            if sources:
+                results = await daily_ingest_sources(config, sources, since=since, until=until)
+            else:
+                results = await daily_ingest_all(config, since=since, until=until)
 
         # 显示结果
         table = Table(title="每日巡检结果")

@@ -47,11 +47,18 @@ class ArxivEntry(BaseModel):
 
     def to_metadata(self) -> PaperMetadata:
         """转换为标准化元数据"""
+        # 使用主分类作为 venue（arXiv 论文的第一个分类）
+        venue = None
+        if self.categories:
+            primary_category = self.categories[0]
+            venue = f"arXiv [{primary_category}]"
+        
         return PaperMetadata(
             source="arxiv",
             identifier=self.arxiv_id,
             title=self.title,
             authors=[Author(name=name) for name in self.authors],
+            venue=venue,
             published_date=self.published.date() if self.published else None,
             updated_date=self.updated,
             doi=self.doi,

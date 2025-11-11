@@ -25,6 +25,7 @@ from papergazer.utils import (
 from papergazer.utils import setup_logging
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 console = Console()
 
@@ -313,16 +314,18 @@ def main():
             result = analyze_venues_by_days(days, sources, top_n=top_n)
 
             table = Table(title=f"期刊/会议分析（最近 {days} 天）")
-            table.add_column("排名", style="cyan")
-            table.add_column("期刊/会议", style="yellow", no_wrap=False, max_width=40)
-            table.add_column("论文数", style="green")
+            table.add_column("排名", style="cyan", justify="right")
+            table.add_column("期刊/会议", style="yellow")
+            table.add_column("论文数", style="green", justify="right")
             table.add_column("数据源", style="blue")
 
             for idx, venue_info in enumerate(result["top_venues"], 1):
                 sources_str = ", ".join(venue_info["sources"])
+                # 使用 Text 对象避免方括号被解释为样式标记
+                venue_text = Text(venue_info["venue"], style="yellow")
                 table.add_row(
                     str(idx),
-                    venue_info["venue"],
+                    venue_text,
                     str(venue_info["count"]),
                     sources_str,
                 )
