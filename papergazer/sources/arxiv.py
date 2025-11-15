@@ -55,7 +55,16 @@ async def query_arxiv(
         "start": start,
     }
 
-    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+    # 对于大量数据查询，使用更长的超时时间
+    # connect: 连接超时, read: 读取超时, write: 写入超时, pool: 连接池超时
+    timeout = httpx.Timeout(
+        connect=10.0,  # 连接超时 10 秒
+        read=180.0,    # 读取超时 180 秒（大量数据需要更长时间）
+        write=10.0,    # 写入超时 10 秒
+        pool=10.0,     # 连接池超时 10 秒
+    )
+    
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         response = await client.get(ARXIV_API_URL, params=params)
         response.raise_for_status()
 
