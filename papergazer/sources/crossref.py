@@ -5,7 +5,7 @@ Crossref API 封装：增量拉取期刊论文
 
 import logging
 from datetime import date, datetime, timezone
-from typing import AsyncIterator
+from typing import AsyncIterator, List, Optional, Union
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -23,9 +23,9 @@ CROSSREF_API_URL = "https://api.crossref.org/works"
     reraise=True,
 )
 async def fetch_crossref_issn_increment(
-    issns: list[str],
-    since: date | datetime | str,
-    until: date | datetime | str | None = None,
+    issns: List[str],
+    since: Union[date, datetime, str],
+    until: Optional[Union[date, datetime, str]] = None,
     mailto: str = "",
     rows: int = 1000,
 ) -> AsyncIterator[CrossrefWork]:
@@ -150,7 +150,7 @@ async def fetch_crossref_issn_increment(
             logger.error(f"达到最大迭代次数 {max_iterations}，强制退出循环")
 
 
-async def fetch_crossref_by_doi(doi: str, mailto: str) -> CrossrefWork | None:
+async def fetch_crossref_by_doi(doi: str, mailto: str) -> Optional[CrossrefWork]:
     """
     按 DOI 获取单个工作项
 

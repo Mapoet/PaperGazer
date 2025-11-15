@@ -5,6 +5,7 @@
 import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
+from typing import Dict, List, Optional, Union
 
 from papergazer.config import Settings
 from papergazer.exceptions import ArxivAPIError, CrossrefAPIError, DatabaseError
@@ -17,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 async def ingest_arxiv(
     config: Settings,
-    since: datetime | None = None,
-    until: datetime | None = None,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
     ignore_checkpoint: bool = False,
 ) -> int:
     """
@@ -174,8 +175,8 @@ async def ingest_arxiv(
 
 async def ingest_crossref(
     config: Settings,
-    since: date | datetime | None = None,
-    until: date | datetime | None = None,
+    since: Optional[Union[date, datetime]] = None,
+    until: Optional[Union[date, datetime]] = None,
     ignore_checkpoint: bool = False,
 ) -> int:
     """
@@ -234,7 +235,7 @@ async def ingest_crossref(
             until_date = datetime.now(timezone.utc).date()
 
         # 收集所有 ISSN
-        all_issns: list[str] = []
+        all_issns: List[str] = []
         for journal_issns in config.journals.issn.values():
             all_issns.extend(journal_issns)
 
@@ -242,7 +243,7 @@ async def ingest_crossref(
         count = 0
         batch_size = 50  # 批量提交大小
         batch = []
-        max_issued_date: date | None = None  # 跟踪最大的issued日期
+        max_issued_date: Optional[date] = None  # 跟踪最大的issued日期
 
         async for work in crossref.fetch_crossref_issn_increment(
             issns=all_issns,
@@ -319,7 +320,7 @@ async def ingest_crossref(
         session.close()
 
 
-async def run_daily_check(config: Settings) -> dict[str, int]:
+async def run_daily_check(config: Settings) -> Dict[str, int]:
     """
     执行每日巡检
 
@@ -333,7 +334,7 @@ async def run_daily_check(config: Settings) -> dict[str, int]:
     logger.info("开始每日巡检")
     logger.info("=" * 50)
 
-    results: dict[str, int] = {}
+    results: Dict[str, int] = {}
 
     try:
         # 巡检 arXiv

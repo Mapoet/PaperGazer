@@ -5,7 +5,7 @@ arXiv API 封装：查询与解析 Atom feed
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import AsyncIterator
+from typing import AsyncIterator, List
 
 import feedparser
 import httpx
@@ -24,7 +24,7 @@ ARXIV_API_URL = "https://export.arxiv.org/api/query"
     reraise=True,
 )
 async def query_arxiv(
-    categories: list[str],
+    categories: List[str],
     max_results: int = 100,
     delay_seconds: float = 3.0,
     start: int = 0,
@@ -117,10 +117,10 @@ async def query_arxiv(
 
 
 async def query_arxiv_batch(
-    categories: list[str],
+    categories: List[str],
     max_results: int = 100,
     delay_seconds: float = 3.0,
-) -> list[ArxivEntry]:
+) -> List[ArxivEntry]:
     """
     批量查询 arXiv（处理分页）
 
@@ -132,7 +132,7 @@ async def query_arxiv_batch(
     Returns:
         ArxivEntry 列表
     """
-    results: list[ArxivEntry] = []
+    results: List[ArxivEntry] = []
     start = 0
     batch_size = 2000  # arXiv 限制
 

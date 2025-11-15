@@ -4,7 +4,7 @@ Europe PMC API 封装：DOI → PMCID → FullTextXML
 
 import logging
 from datetime import date, datetime
-from typing import AsyncIterator
+from typing import AsyncIterator, Dict, Optional, Union
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -21,7 +21,7 @@ EUROPE_PMC_API_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-async def doi_to_pmcid(doi: str) -> str | None:
+async def doi_to_pmcid(doi: str) -> Optional[str]:
     """
     通过 DOI 获取 PMCID
 
@@ -82,11 +82,11 @@ async def fetch_fulltext_xml(pmcid: str) -> bytes:
     reraise=True,
 )
 async def search_articles_by_date(
-    from_date: date | datetime | str,
-    to_date: date | datetime | str | None = None,
+    from_date: Union[date, datetime, str],
+    to_date: Optional[Union[date, datetime, str]] = None,
     page_size: int = 25,
     max_results: int = 1000,
-) -> AsyncIterator[dict]:
+) -> AsyncIterator[Dict]:
     """
     按发布日期搜索文章
 

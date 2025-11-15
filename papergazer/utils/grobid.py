@@ -10,7 +10,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Union
 
 import httpx
 from xml.sax.saxutils import escape
@@ -28,25 +28,25 @@ class GrobidDisabledError(GrobidError):
     """当 GROBID 功能未启用但仍尝试调用时抛出"""
 
 
-@dataclass(slots=True)
+@dataclass
 class GrobidResult:
     """GROBID 处理结果"""
 
     tei_xml: str
     tei_path: Optional[Path]
     source: str  # grobid | text | xml
-    metadata: Optional[dict[str, str]] = None
+    metadata: Optional[Dict[str, str]] = None
     error: Optional[str] = None
 
 
 async def process_fulltext_document(
     config: Settings,
-    pdf_path: Path | None = None,
+    pdf_path: Optional[Path] = None,
     *,
-    text: str | None = None,
-    xml: str | None = None,
-    document_id: str | None = None,
-    output_dir: Path | None = None,
+    text: Optional[str] = None,
+    xml: Optional[str] = None,
+    document_id: Optional[str] = None,
+    output_dir: Optional[Path] = None,
     save: bool = True,
 ) -> GrobidResult:
     """
@@ -137,7 +137,7 @@ async def _process_pdf_with_grobid(config: Settings, pdf_path: Path) -> str:
     return tei_xml
 
 
-def _build_tei_from_text(text: str, document_id: str | None = None) -> str:
+def _build_tei_from_text(text: str, document_id: Optional[str] = None) -> str:
     safe_title = escape(document_id or "Untitled")
     paragraphs = _split_paragraphs(text)
     paragraph_xml = "\n".join(f"        <p>{escape(p)}</p>" for p in paragraphs)
@@ -163,7 +163,7 @@ def _build_tei_from_text(text: str, document_id: str | None = None) -> str:
     )
 
 
-def _normalize_xml(xml_content: str, document_id: str | None = None) -> str:
+def _normalize_xml(xml_content: str, document_id: Optional[str] = None) -> str:
     stripped = xml_content.strip()
     if not stripped:
         raise ValueError("提供的 XML 内容为空")
@@ -196,10 +196,10 @@ def _normalize_xml(xml_content: str, document_id: str | None = None) -> str:
     )
 
 
-def _split_paragraphs(text: str) -> list[str]:
+def _split_paragraphs(text: str) -> List[str]:
     lines = [line.strip() for line in text.replace("\r\n", "\n").split("\n")]
-    paragraphs: list[str] = []
-    buffer: list[str] = []
+    paragraphs: List[str] = []
+    buffer: List[str] = []
 
     for line in lines:
         if not line:
@@ -219,9 +219,9 @@ def _save_tei(
     tei_xml: str,
     *,
     config: Settings,
-    pdf_path: Path | None,
-    output_dir: Path | None,
-    document_id: str | None,
+    pdf_path: Optional[Path],
+    output_dir: Optional[Path],
+    document_id: Optional[str],
     source: str,
 ) -> Path:
     base_dir = (
@@ -256,12 +256,12 @@ def _sanitize_filename(value: str) -> str:
 # 便捷同步封装
 def process_fulltext_document_sync(
     config: Settings,
-    pdf_path: Path | None = None,
+    pdf_path: Optional[Path] = None,
     *,
-    text: str | None = None,
-    xml: str | None = None,
-    document_id: str | None = None,
-    output_dir: Path | None = None,
+    text: Optional[str] = None,
+    xml: Optional[str] = None,
+    document_id: Optional[str] = None,
+    output_dir: Optional[Path] = None,
     save: bool = True,
 ) -> GrobidResult:
     """

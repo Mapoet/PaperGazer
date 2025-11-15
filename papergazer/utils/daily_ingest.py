@@ -6,6 +6,7 @@
 import asyncio
 import logging
 from datetime import date, datetime, timezone
+from typing import Dict, List, Optional, Union
 
 from papergazer.config import Settings
 from papergazer.core.ingest import ingest_arxiv, ingest_crossref
@@ -17,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 async def daily_ingest_all(
     config: Settings,
-    since: datetime | date | None = None,
-    until: datetime | date | None = None,
+    since: Optional[Union[datetime, date]] = None,
+    until: Optional[Union[datetime, date]] = None,
 ) -> dict:
     """
     执行每日巡检任务（所有数据源）
@@ -128,9 +129,9 @@ async def daily_ingest_all(
 
 async def daily_ingest_sources(
     config: Settings,
-    sources: list[str],
-    since: datetime | date | None = None,
-    until: datetime | date | None = None,
+    sources: List[str],
+    since: Optional[Union[datetime, date]] = None,
+    until: Optional[Union[datetime, date]] = None,
 ) -> dict:
     """
     执行指定数据源的每日巡检任务

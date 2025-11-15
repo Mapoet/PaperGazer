@@ -8,7 +8,7 @@ import logging
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from papergazer.store.db import get_session, PaperItem, init_db
 from papergazer.utils.db_filters import get_effective_date_filter
@@ -17,7 +17,7 @@ from sqlalchemy import and_, or_
 logger = logging.getLogger(__name__)
 
 
-def _ensure_db_initialized(db_path: str | Path | None = None) -> None:
+def _ensure_db_initialized(db_path: Optional[Union[str, Path]] = None) -> None:
     """
     确保数据库已初始化
     
@@ -61,7 +61,7 @@ def analyze_authors_by_days(
     days: int,
     sources: Optional[List[str]] = None,
     top_n: int = 10,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> Dict:
     """
     分析指定天数内的作者信息
@@ -143,7 +143,7 @@ def analyze_abstracts_by_days(
     days: int,
     sources: Optional[List[str]] = None,
     min_length: int = 100,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> Dict:
     """
     分析指定天数内的摘要信息
@@ -210,7 +210,7 @@ def analyze_abstracts_by_days(
 def analyze_oa_status_by_days(
     days: int,
     sources: Optional[List[str]] = None,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> Dict:
     """
     分析指定天数内的 OA 状态
@@ -277,7 +277,7 @@ def analyze_venues_by_days(
     days: int,
     sources: Optional[List[str]] = None,
     top_n: int = 10,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> Dict:
     """
     分析指定天数内的期刊/会议信息
@@ -336,7 +336,7 @@ def get_papers_by_days(
     sources: Optional[List[str]] = None,
     limit: Optional[int] = None,
     order_by: str = "updated_date",
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> List[Dict]:
     """
     获取指定天数内的论文列表

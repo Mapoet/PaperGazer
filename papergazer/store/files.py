@@ -5,7 +5,7 @@
 import hashlib
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 from papergazer.models import PaperMetadata
 
@@ -37,7 +37,7 @@ def sanitize_identifier(identifier: str) -> str:
 
 
 def get_paper_path(
-    papers_dir: str | Path,
+    papers_dir: Union[str, Path],
     metadata: PaperMetadata,
     filename: str = "paper.pdf",
 ) -> Path:
@@ -61,7 +61,7 @@ def get_paper_path(
     return papers_dir / str(year) / sanitized_id / filename
 
 
-def compute_file_hash(file_path: str | Path) -> str:
+def compute_file_hash(file_path: Union[str, Path]) -> str:
     """
     计算文件 SHA256 哈希
 
@@ -79,11 +79,11 @@ def compute_file_hash(file_path: str | Path) -> str:
 
 
 def save_pdf(
-    papers_dir: str | Path,
+    papers_dir: Union[str, Path],
     metadata: PaperMetadata,
     pdf_content: bytes,
     overwrite: bool = False,
-) -> tuple[Path, str]:
+) -> Tuple[Path, str]:
     """
     保存 PDF 文件
 
@@ -117,11 +117,11 @@ def save_pdf(
 
 
 def save_xml(
-    papers_dir: str | Path,
+    papers_dir: Union[str, Path],
     metadata: PaperMetadata,
     xml_content: bytes,
     overwrite: bool = False,
-) -> tuple[Path, str]:
+) -> Tuple[Path, str]:
     """
     保存 XML 文件
 
@@ -154,7 +154,7 @@ def save_xml(
     return xml_path, file_hash
 
 
-def file_exists(papers_dir: str | Path, metadata: PaperMetadata, filename: str = "paper.pdf") -> bool:
+def file_exists(papers_dir: Union[str, Path], metadata: PaperMetadata, filename: str = "paper.pdf") -> bool:
     """
     检查文件是否存在
 

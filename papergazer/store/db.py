@@ -5,7 +5,7 @@
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from sqlalchemy import (
     Boolean,
@@ -255,7 +255,7 @@ _engine = None
 _SessionLocal = None
 
 
-def init_db(db_path: str | Path) -> None:
+def init_db(db_path: Union[str, Path]) -> None:
     """
     初始化数据库
 

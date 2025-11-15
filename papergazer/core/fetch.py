@@ -5,6 +5,7 @@
 import logging
 import re
 from pathlib import Path
+from typing import Optional, Tuple, Union
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -26,7 +27,7 @@ from papergazer.store.files import save_pdf, save_xml
 logger = logging.getLogger(__name__)
 
 
-def normalize_identifier(identifier: str) -> tuple[str, str]:
+def normalize_identifier(identifier: str) -> Tuple[str, str]:
     """
     规范化标识符，判断类型
 
@@ -142,7 +143,7 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
         raise FetchError(f"下载文件失败: {url}") from e
 
 
-async def fetch_arxiv_pdf(arxiv_id: str, papers_dir: Path) -> tuple[Path | None, str | None]:
+async def fetch_arxiv_pdf(arxiv_id: str, papers_dir: Path) -> Tuple[Optional[Path], Optional[str]]:
     """
     抓取 arXiv PDF
 

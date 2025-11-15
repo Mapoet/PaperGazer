@@ -7,7 +7,7 @@ import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from papergazer.config import Settings
 from papergazer.core.ingest import ingest_arxiv, ingest_crossref
@@ -514,7 +514,7 @@ def search_papers_by_author(
     author_name: str,
     sources: Optional[List[str]] = None,
     limit: Optional[int] = None,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> List[Dict]:
     """
     按作者名称搜索论文
@@ -583,7 +583,7 @@ def search_papers_by_venue(
     venue_name: str,
     sources: Optional[List[str]] = None,
     limit: Optional[int] = None,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> List[Dict]:
     """
     按期刊/会议名称搜索论文
@@ -652,7 +652,7 @@ def search_papers_by_keyword(
     sources: Optional[List[str]] = None,
     search_in: str = "both",  # 'title', 'abstract', 'both'
     limit: Optional[int] = None,
-    db_path: Optional[str | Path] = None,
+    db_path: Optional[Union[str, Path]] = None,
 ) -> List[Dict]:
     """
     按关键词搜索论文（标题和/或摘要）

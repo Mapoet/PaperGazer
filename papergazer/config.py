@@ -5,7 +5,7 @@
 
 import yaml
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,7 +25,7 @@ class ArxivConfig(BaseSettings):
 class JournalsConfig(BaseSettings):
     """期刊配置"""
 
-    issn: dict[str, List[str]] = Field(
+    issn: Dict[str, List[str]] = Field(
         default_factory=lambda: {
             "nature": ["0028-0836", "1476-4687"],
             "science": ["0036-8075", "1095-9203"],
@@ -193,7 +193,7 @@ class Settings(BaseSettings):
     embeddings: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
 
 
-def load_config(config_path: str | Path | None = None) -> Settings:
+def load_config(config_path: Optional[Union[str, Path]] = None) -> Settings:
     """
     加载配置文件
     所有配置从 YAML 文件读取
