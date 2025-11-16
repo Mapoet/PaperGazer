@@ -73,9 +73,18 @@ async def ingest_arxiv(
         max_updated_time = last_checkpoint  # 跟踪查询到的最大更新时间
         min_updated_time = None  # 跟踪查询到的最小更新时间（用于调试）
         
+        # 如果 max_results 太大，自动减少以避免超时
+        # arXiv API 返回大量数据时容易超时，建议单次查询不超过 300 条
+        effective_max_results = min(config.arxiv.max_results, 300)
+        if config.arxiv.max_results > 300:
+            logger.warning(
+                f"max_results={config.arxiv.max_results} 较大，可能增加超时风险。"
+                f"自动调整为 {effective_max_results} 以减少超时风险。"
+            )
+        
         async for entry in query_arxiv(
             categories=config.arxiv.categories,
-            max_results=config.arxiv.max_results,
+            max_results=effective_max_results,
             delay_seconds=config.arxiv.delay_seconds,
         ):
             total_fetched += 1
