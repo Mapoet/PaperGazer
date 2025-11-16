@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -48,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_config_path(raw: str | None) -> Path:
+def resolve_config_path(raw: Optional[str]) -> Path:
     if raw:
         path = Path(raw)
         if not path.is_absolute():

@@ -10,6 +10,7 @@ import json
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -27,12 +28,12 @@ console = Console()
 def query_papers_with_filters(
     since: date,
     until: date,
-    author: str | None = None,
-    keyword: str | None = None,
-    sources: list[str] | None = None,
-    venues: list[str] | None = None,
-    db_path: str | Path | None = None,
-) -> list[dict]:
+    author: Optional[str] = None,
+    keyword: Optional[str] = None,
+    sources: Optional[List[str]] = None,
+    venues: Optional[List[str]] = None,
+    db_path: Optional[Union[str, Path]] = None,
+) -> List[Dict]:
     """
     查询论文（带过滤条件）
 
@@ -199,12 +200,12 @@ def format_paper_markdown(paper: dict, index: int) -> str:
 
 
 def export_to_markdown(
-    papers: list[dict],
+    papers: List[Dict],
     output_file: Path,
     since: date,
     until: date,
-    author: str | None = None,
-    keyword: str | None = None,
+    author: Optional[str] = None,
+    keyword: Optional[str] = None,
 ) -> None:
     """
     导出论文到 Markdown 文件
