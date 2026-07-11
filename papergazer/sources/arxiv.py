@@ -49,7 +49,7 @@ async def query_arxiv(
     else:
         query = " OR ".join([f"cat:{cat}" for cat in categories])
 
-    params = {
+    params: dict[str, str | int] = {
         "search_query": query,
         "sortBy": "lastUpdatedDate",
         "sortOrder": "descending",
@@ -122,13 +122,31 @@ async def query_arxiv(
 
         # 解析日期（arXiv API 返回的是 UTC 时间）
         if hasattr(entry, "updated_parsed") and entry.updated_parsed:
-            updated = datetime(*entry.updated_parsed[:6], tzinfo=UTC)
+            parsed = entry.updated_parsed
+            updated = datetime(
+                parsed.tm_year,
+                parsed.tm_mon,
+                parsed.tm_mday,
+                parsed.tm_hour,
+                parsed.tm_min,
+                parsed.tm_sec,
+                tzinfo=UTC,
+            )
         else:
             updated = datetime.now(UTC)
 
         published = None
         if hasattr(entry, "published_parsed") and entry.published_parsed:
-            published = datetime(*entry.published_parsed[:6], tzinfo=UTC)
+            parsed = entry.published_parsed
+            published = datetime(
+                parsed.tm_year,
+                parsed.tm_mon,
+                parsed.tm_mday,
+                parsed.tm_hour,
+                parsed.tm_min,
+                parsed.tm_sec,
+                tzinfo=UTC,
+            )
 
         # 提取 DOI（如果存在）
         doi = None

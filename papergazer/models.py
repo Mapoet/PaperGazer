@@ -17,11 +17,11 @@ class Author(BaseModel):
 class PaperMetadata(BaseModel):
     """论文元数据模型（标准化）"""
 
-    source: str = Field(..., description="数据源：arxiv 或 crossref")
-    identifier: str = Field(..., description="arxiv_id 或 doi")
+    source: str = Field(description="数据源：arxiv 或 crossref")
+    identifier: str = Field(description="arxiv_id 或 doi")
     title: str
     authors: list[Author] = Field(default_factory=list)
-    venue: str | None = Field(None, description="期刊/会议名称")
+    venue: str | None = Field(default=None, description="期刊/会议名称")
     issn_print: str | None = None
     issn_online: str | None = None
     published_date: date | None = None

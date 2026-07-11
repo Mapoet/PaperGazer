@@ -3,12 +3,11 @@
 """
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from sqlalchemy import (
     Boolean,
-    Column,
     Date,
     DateTime,
     Index,
@@ -19,7 +18,7 @@ from sqlalchemy import (
     create_engine,
     text,
 )
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from papergazer.models import Author, PaperMetadata
 
@@ -35,40 +34,42 @@ class PaperItem(Base):
 
     __tablename__ = "items"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    source = Column(String(50), nullable=False, index=True)  # 'arxiv' | 'crossref'
-    identifier = Column(String(255), nullable=False)  # arxiv_id 或 doi
-    title = Column(Text)
-    authors_json = Column(Text)  # JSON 数组
-    venue = Column(String(255))  # 期刊/会议名称
-    issn_print = Column(String(20))
-    issn_online = Column(String(20))
-    published_date = Column(Date, index=True)
-    updated_date = Column(DateTime)
-    doi = Column(String(255), unique=True, index=True)
-    url_landing = Column(Text)
-    is_oa = Column(Boolean, default=False)
-    oa_source = Column(String(50))  # 'unpaywall' | 'eupmc' | 'arxiv'
-    oa_pdf_url = Column(Text)
-    pdf_path = Column(Text)
-    tei_path = Column(Text)
-    abstract_jats = Column(Text)
-    figures_json = Column(Text)
-    tables_json = Column(Text)
-    crossref_json = Column(Text)
-    openalex_json = Column(Text)
-    unpaywall_json = Column(Text)
-    references_json = Column(Text)
-    funder_json = Column(Text)
-    license_json = Column(Text)
-    concepts_json = Column(Text)
-    host_venue_json = Column(Text)
-    referenced_work_ids_json = Column(Text)
-    oa_status = Column(String(50))
-    oa_license = Column(String(100))
-    cited_by_count = Column(Integer)
-    ingested_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
-    hash = Column(String(64))  # 文件哈希（SHA256）
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
+    authors_json: Mapped[str | None] = mapped_column(Text)
+    venue: Mapped[str | None] = mapped_column(String(255))
+    issn_print: Mapped[str | None] = mapped_column(String(20))
+    issn_online: Mapped[str | None] = mapped_column(String(20))
+    published_date: Mapped[date | None] = mapped_column(Date, index=True)
+    updated_date: Mapped[datetime | None] = mapped_column(DateTime)
+    doi: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
+    url_landing: Mapped[str | None] = mapped_column(Text)
+    is_oa: Mapped[bool] = mapped_column(Boolean, default=False)
+    oa_source: Mapped[str | None] = mapped_column(String(50))
+    oa_pdf_url: Mapped[str | None] = mapped_column(Text)
+    pdf_path: Mapped[str | None] = mapped_column(Text)
+    tei_path: Mapped[str | None] = mapped_column(Text)
+    abstract_jats: Mapped[str | None] = mapped_column(Text)
+    figures_json: Mapped[str | None] = mapped_column(Text)
+    tables_json: Mapped[str | None] = mapped_column(Text)
+    crossref_json: Mapped[str | None] = mapped_column(Text)
+    openalex_json: Mapped[str | None] = mapped_column(Text)
+    unpaywall_json: Mapped[str | None] = mapped_column(Text)
+    references_json: Mapped[str | None] = mapped_column(Text)
+    funder_json: Mapped[str | None] = mapped_column(Text)
+    license_json: Mapped[str | None] = mapped_column(Text)
+    concepts_json: Mapped[str | None] = mapped_column(Text)
+    host_venue_json: Mapped[str | None] = mapped_column(Text)
+    referenced_work_ids_json: Mapped[str | None] = mapped_column(Text)
+    oa_status: Mapped[str | None] = mapped_column(String(50))
+    oa_license: Mapped[str | None] = mapped_column(String(100))
+    cited_by_count: Mapped[int | None] = mapped_column(Integer)
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+    hash: Mapped[str | None] = mapped_column(String(64))
 
     __table_args__ = (
         UniqueConstraint("source", "identifier", name="uq_source_identifier"),
@@ -128,13 +129,13 @@ class RunRecord(Base):
 
     __tablename__ = "runs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    source = Column(String(50), nullable=False, index=True)  # 'arxiv' | 'crossref'
-    last_checkpoint = Column(DateTime, nullable=False)
-    items_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    cursor = Column(Text)
-    summary_json = Column(Text)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    last_checkpoint: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    items_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    cursor: Mapped[str | None] = mapped_column(Text)
+    summary_json: Mapped[str | None] = mapped_column(Text)
 
 
 class AuthorIdentity(Base):
@@ -142,15 +143,15 @@ class AuthorIdentity(Base):
 
     __tablename__ = "identities_author"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    paper_id = Column(Integer, index=True, nullable=False)
-    local_index = Column(Integer, nullable=False)
-    source_name = Column(String(255), nullable=False)
-    normalized_name = Column(String(255))
-    orcid = Column(String(32))
-    confidence = Column(String(32))
-    metadata_json = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    paper_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    local_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_name: Mapped[str | None] = mapped_column(String(255))
+    orcid: Mapped[str | None] = mapped_column(String(32))
+    confidence: Mapped[str | None] = mapped_column(String(32))
+    metadata_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
         UniqueConstraint("paper_id", "local_index", name="uq_author_identity_unique"),
@@ -162,18 +163,18 @@ class AffiliationIdentity(Base):
 
     __tablename__ = "identities_affiliation"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    paper_id = Column(Integer, index=True, nullable=False)
-    local_index = Column(Integer, nullable=False)
-    source_name = Column(String(255), nullable=False)
-    normalized_name = Column(String(255))
-    ror_id = Column(String(64))
-    country_code = Column(String(8))
-    latitude = Column(String(32))
-    longitude = Column(String(32))
-    confidence = Column(String(32))
-    metadata_json = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    paper_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    local_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_name: Mapped[str | None] = mapped_column(String(255))
+    ror_id: Mapped[str | None] = mapped_column(String(64))
+    country_code: Mapped[str | None] = mapped_column(String(8))
+    latitude: Mapped[str | None] = mapped_column(String(32))
+    longitude: Mapped[str | None] = mapped_column(String(32))
+    confidence: Mapped[str | None] = mapped_column(String(32))
+    metadata_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
         UniqueConstraint("paper_id", "local_index", name="uq_affiliation_identity_unique"),
@@ -185,14 +186,16 @@ class CitationEdge(Base):
 
     __tablename__ = "graphs_citation"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    paper_id = Column(Integer, index=True, nullable=False)
-    cited_paper_id = Column(Integer, index=True)
-    cited_doi = Column(String(255), index=True)
-    relation_type = Column(String(64))
-    weight = Column(Integer, default=1)
-    raw_reference_json = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    paper_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    cited_paper_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    cited_doi: Mapped[str | None] = mapped_column(String(255), index=True)
+    relation_type: Mapped[str | None] = mapped_column(String(64))
+    weight: Mapped[int] = mapped_column(Integer, default=1)
+    raw_reference_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
 
 
 class ConceptMetric(Base):
@@ -200,16 +203,18 @@ class ConceptMetric(Base):
 
     __tablename__ = "analytics_concepts"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    concept_id = Column(String(255), index=True)
-    concept_name = Column(String(255), nullable=False)
-    concept_level = Column(Integer)
-    paper_count = Column(Integer, default=0)
-    avg_score = Column(String(32))
-    window_start = Column(DateTime, index=True, nullable=False)
-    window_end = Column(DateTime, index=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
-    metadata_json = Column(Text)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    concept_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    concept_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    concept_level: Mapped[int | None] = mapped_column(Integer)
+    paper_count: Mapped[int] = mapped_column(Integer, default=0)
+    avg_score: Mapped[str | None] = mapped_column(String(32))
+    window_start: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+    metadata_json: Mapped[str | None] = mapped_column(Text)
 
 
 class OAMetric(Base):
@@ -217,20 +222,22 @@ class OAMetric(Base):
 
     __tablename__ = "analytics_oa"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    window_start = Column(DateTime, index=True, nullable=False)
-    window_end = Column(DateTime, index=True, nullable=False)
-    source = Column(String(64), index=True)
-    total_count = Column(Integer, default=0)
-    oa_count = Column(Integer, default=0)
-    gold_count = Column(Integer, default=0)
-    green_count = Column(Integer, default=0)
-    bronze_count = Column(Integer, default=0)
-    license_json = Column(Text)
-    data_link_count = Column(Integer, default=0)
-    code_link_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
-    metadata_json = Column(Text)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(64), index=True)
+    total_count: Mapped[int] = mapped_column(Integer, default=0)
+    oa_count: Mapped[int] = mapped_column(Integer, default=0)
+    gold_count: Mapped[int] = mapped_column(Integer, default=0)
+    green_count: Mapped[int] = mapped_column(Integer, default=0)
+    bronze_count: Mapped[int] = mapped_column(Integer, default=0)
+    license_json: Mapped[str | None] = mapped_column(Text)
+    data_link_count: Mapped[int] = mapped_column(Integer, default=0)
+    code_link_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+    metadata_json: Mapped[str | None] = mapped_column(Text)
 
 
 class PaperEmbedding(Base):
@@ -238,15 +245,116 @@ class PaperEmbedding(Base):
 
     __tablename__ = "embeddings"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    paper_id = Column(Integer, index=True, nullable=False)
-    model_name = Column(String(255), index=True, nullable=False)
-    vector_json = Column(Text, nullable=False)
-    dimension = Column(Integer, nullable=False)
-    source_fields = Column(String(255))
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    paper_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    model_name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    vector_json: Mapped[str] = mapped_column(Text, nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_fields: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
 
     __table_args__ = (UniqueConstraint("paper_id", "model_name", name="uq_embedding_paper_model"),)
+
+
+class PipelineRun(Base):
+    """Auditable execution of one or more pipeline stages."""
+
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_uid: Mapped[str] = mapped_column(String(36), unique=True, index=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    requested_stages_json: Mapped[str] = mapped_column(Text, nullable=False)
+    scope_json: Mapped[str | None] = mapped_column(Text)
+    config_digest: Mapped[str | None] = mapped_column(String(64), index=True)
+    config_summary_json: Mapped[str | None] = mapped_column(Text)
+    code_revision: Mapped[str | None] = mapped_column(String(64), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    summary_json: Mapped[str | None] = mapped_column(Text)
+    error_summary: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+
+
+class PipelineJob(Base):
+    """Recoverable per-paper unit of pipeline work."""
+
+    __tablename__ = "pipeline_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    paper_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    stage: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    error_category: Mapped[str | None] = mapped_column(String(64), index=True)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    payload_json: Mapped[str | None] = mapped_column(Text)
+    result_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "paper_id", "stage", name="uq_pipeline_job_unit"),
+        Index("idx_pipeline_job_resume", "run_id", "stage", "status", "next_retry_at"),
+    )
+
+
+class DataQualitySnapshot(Base):
+    """Versioned inventory-quality measurement with explicit denominator."""
+
+    __tablename__ = "data_quality_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    metric_name: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    numerator: Mapped[int] = mapped_column(Integer, nullable=False)
+    denominator: Mapped[int] = mapped_column(Integer, nullable=False)
+    metric_value: Mapped[str] = mapped_column(String(64), nullable=False)
+    dimensions_json: Mapped[str | None] = mapped_column(Text)
+    schema_version: Mapped[str] = mapped_column(String(32), default="1", nullable=False)
+    measured_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+
+
+class ManualCorrection(Base):
+    """User-authored override that always takes precedence over automation."""
+
+    __tablename__ = "manual_corrections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    paper_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    entity_key: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    field_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    corrected_value_json: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), index=True
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+
+    __table_args__ = (
+        Index(
+            "idx_manual_correction_lookup",
+            "paper_id",
+            "entity_type",
+            "entity_key",
+            "field_name",
+            "superseded_at",
+        ),
+    )
 
 
 # 全局变量
@@ -277,6 +385,12 @@ def init_db(db_path: str | Path) -> None:
     Base.metadata.create_all(_engine)
 
     _ensure_schema(_engine)
+
+    # Record and apply versioned migrations after the pre-Alembic compatibility
+    # bridge has normalized legacy databases.
+    from papergazer.store.migrations import upgrade_database
+
+    upgrade_database(db_path)
 
     # 创建会话工厂
     _SessionLocal = sessionmaker(bind=_engine, autocommit=False, autoflush=False)
@@ -315,6 +429,23 @@ def _ensure_schema(engine) -> None:
                 conn.execute(text(f"ALTER TABLE items ADD COLUMN {name} {col_type}"))
                 columns.add(name)
 
+        # Pre-Alembic releases did not have a formal baseline.  Normalize all
+        # historical variants before stamping the versioned schema.
+        add_column("authors_json", "TEXT")
+        add_column("venue", "TEXT")
+        add_column("issn_print", "TEXT")
+        add_column("issn_online", "TEXT")
+        add_column("published_date", "DATE")
+        add_column("updated_date", "DATETIME")
+        add_column("doi", "TEXT")
+        add_column("url_landing", "TEXT")
+        add_column("is_oa", "BOOLEAN DEFAULT 0")
+        add_column("oa_source", "TEXT")
+        add_column("oa_pdf_url", "TEXT")
+        add_column("pdf_path", "TEXT")
+        add_column("abstract_jats", "TEXT")
+        add_column("ingested_at", "DATETIME")
+        add_column("hash", "TEXT")
         add_column("tei_path", "TEXT")
         add_column("crossref_json", "TEXT")
         add_column("openalex_json", "TEXT")

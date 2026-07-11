@@ -22,6 +22,7 @@ def setup_logging(config: LoggingConfig) -> None:
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
     # 配置日志格式
+    formatter: logging.Formatter
     if config.format == "json":
         # JSON 格式日志
         class JSONFormatter(logging.Formatter):
