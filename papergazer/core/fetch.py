@@ -11,6 +11,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from papergazer.config import Settings
+from papergazer.utils.http_client import async_client
 from papergazer.exceptions import (
     FetchError,
     ArxivAPIError,
@@ -85,7 +86,7 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
         return await client.get(target_url, follow_redirects=True)
 
     try:
-        async with httpx.AsyncClient(
+        async with async_client(
             timeout=timeout,
             follow_redirects=True,
             max_redirects=10,

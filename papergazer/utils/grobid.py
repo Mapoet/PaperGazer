@@ -16,6 +16,7 @@ import httpx
 from xml.sax.saxutils import escape
 
 from papergazer.config import Settings
+from papergazer.utils.http_client import async_client
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,7 @@ async def _process_pdf_with_grobid(config: Settings, pdf_path: Path) -> str:
 
     logger.info("调用 GROBID 处理 PDF: %s -> %s", pdf_path.name, url)
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with async_client(timeout=timeout) as client:
         try:
             with pdf_path.open("rb") as file_obj:
                 files = {"input": (pdf_path.name, file_obj, "application/pdf")}

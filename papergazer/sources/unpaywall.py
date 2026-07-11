@@ -6,6 +6,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from papergazer.models import UnpaywallResponse
+from papergazer.utils.http_client import async_client
 
 UNPAYWALL_API_URL = "https://api.unpaywall.org/v2"
 
@@ -29,7 +30,7 @@ async def best_oa(doi: str, email: str) -> UnpaywallResponse:
     url = f"{UNPAYWALL_API_URL}/{doi}"
     params = {"email": email}
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with async_client(timeout=30.0) as client:
         response = await client.get(url, params=params)
         
         # 处理422错误（通常是邮箱验证失败）

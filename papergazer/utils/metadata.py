@@ -12,6 +12,7 @@ from urllib.parse import quote_plus
 
 import httpx
 
+from papergazer.utils.http_client import sync_client
 from papergazer.store.db import (
     PaperItem,
     get_last_run,
@@ -45,7 +46,7 @@ def fetch_crossref_metadata(doi: str, mailto: str | None = None, timeout: float 
 
     headers = {"User-Agent": _build_user_agent(mailto)}
     try:
-        with httpx.Client(timeout=timeout) as client:
+        with sync_client(timeout=timeout) as client:
             resp = client.get(url, params=params, headers=headers)
             if resp.status_code == 404:
                 logger.warning("Crossref 未找到 DOI: %s", doi)
@@ -67,7 +68,7 @@ def fetch_openalex_metadata(doi: str, mailto: str | None = None, timeout: float 
     headers = {"User-Agent": _build_user_agent(mailto)}
 
     try:
-        with httpx.Client(timeout=timeout) as client:
+        with sync_client(timeout=timeout) as client:
             resp = client.get(url, params=params, headers=headers)
             if resp.status_code == 404:
                 logger.warning("OpenAlex 未找到 DOI: %s", doi)
@@ -89,7 +90,7 @@ def fetch_unpaywall_metadata(doi: str, email: str | None = None, timeout: float 
     url = f"{UNPAYWALL_API_URL}/{quote_plus(doi)}"
 
     try:
-        with httpx.Client(timeout=timeout) as client:
+        with sync_client(timeout=timeout) as client:
             resp = client.get(url, params=params)
             if resp.status_code == 404:
                 logger.warning("Unpaywall 未找到 DOI: %s", doi)

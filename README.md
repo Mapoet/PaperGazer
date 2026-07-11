@@ -124,6 +124,24 @@ python scripts/query_papers.py author "Smith" --limit 20
 
 ---
 
+### 自动化每日运行（crontab）
+
+在服务器上可以使用 `crontab -e` 添加计划任务，以每日自动执行巡检脚本。以下示例会在每天凌晨 2 点运行 `daily_ingest.py`，并将标准输出与标准错误追加写入 `logs/daily_ingest.log`：
+
+```cron
+0 2 * * * cd /home/Mapoet/projects/PaperGazer && /home/Mapoet/appservice/bin/python3 scripts/daily_ingest.py --days 1 >> /home/Mapoet/projects/PaperGazer/logs/daily_ingest.log 2>&1
+```
+
+建议在首次运行前确保：
+
+1. `logs/` 目录已创建并具备写权限。
+2. `configs/config.yaml` 配置正确、访问凭据可用。
+3. 虚拟环境路径 `/home/Mapoet/appservice/bin/python3` 与实际部署一致。
+
+如果需要自定义时间窗口或启用特定参数（如 `--download`、`--post-tei`），可在命令末尾继续追加。
+
+---
+
 ## 项目结构
 
 ```
@@ -180,4 +198,3 @@ ruff check papergazer scripts
 - 维护者：Mapoet（欢迎 Issue / PR / Feature Request）
 
 PaperGazer 已具备构建领域专题图谱、开放获取评估、长文档 QA 等上层应用所需的核心能力。欢迎基于现有模块扩展更多科研工作流。 
-

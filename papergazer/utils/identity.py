@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 import httpx
 
 from papergazer.config import IdentityConfig
+from papergazer.utils.http_client import sync_client
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> Lis
     }
 
     try:
-        with httpx.Client(timeout=15.0, headers=headers) as client:
+        with sync_client(timeout=15.0, headers=headers) as client:
             resp = client.get(config.orcid.base_url, params=params)
             if resp.status_code == 404:
                 logger.debug("ORCID 未找到：%s", name)
@@ -120,7 +121,7 @@ def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> List[
     }
 
     try:
-        with httpx.Client(timeout=15.0) as client:
+        with sync_client(timeout=15.0) as client:
             resp = client.get(config.ror.base_url, params=params)
             resp.raise_for_status()
             data = resp.json()

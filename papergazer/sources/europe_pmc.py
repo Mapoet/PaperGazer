@@ -10,6 +10,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from papergazer.models import EuropePMCResult
+from papergazer.utils.http_client import async_client
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ async def doi_to_pmcid(doi: str) -> Optional[str]:
     query = f"search?query=DOI:{doi}&format=json"
     url = f"{EUROPE_PMC_API_URL}/{query}"
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with async_client(timeout=30.0) as client:
         response = await client.get(url)
         response.raise_for_status()
 
@@ -70,7 +71,7 @@ async def fetch_fulltext_xml(pmcid: str) -> bytes:
 
     url = f"{EUROPE_PMC_API_URL}/{pmcid}/fullTextXML"
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with async_client(timeout=60.0) as client:
         response = await client.get(url)
         response.raise_for_status()
         return response.content
@@ -122,7 +123,7 @@ async def search_articles_by_date(
     page = 1
     total_fetched = 0
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with async_client(timeout=60.0) as client:
         while total_fetched < max_results:
             params = {
                 "query": query,

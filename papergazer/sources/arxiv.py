@@ -12,6 +12,7 @@ import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from papergazer.models import ArxivEntry
+from papergazer.utils.http_client import async_client
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ async def query_arxiv(
     logger.debug(f"arXiv API 请求参数: max_results={max_results}, start={start}, 超时设置: read={read_timeout}s")
     
     try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        async with async_client(timeout=timeout, follow_redirects=True) as client:
             # 使用流式读取，避免一次性加载整个响应
             response = await client.get(ARXIV_API_URL, params=params)
             response.raise_for_status()

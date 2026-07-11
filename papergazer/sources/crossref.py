@@ -11,6 +11,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from papergazer.models import CrossrefWork
+from papergazer.utils.http_client import async_client
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ async def fetch_crossref_issn_increment(
         "mailto": mailto,
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with async_client(timeout=60.0) as client:
         seen_cursors = set()  # 跟踪已见过的游标，防止循环
         max_iterations = 10000  # 最大迭代次数，防止无限循环
         iteration = 0
@@ -164,7 +165,7 @@ async def fetch_crossref_by_doi(doi: str, mailto: str) -> Optional[CrossrefWork]
     url = f"{CROSSREF_API_URL}/{doi}"
     params = {"mailto": mailto}
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with async_client(timeout=30.0) as client:
         try:
             response = await client.get(url, params=params)
             response.raise_for_status()
