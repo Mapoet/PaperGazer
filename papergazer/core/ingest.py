@@ -49,15 +49,15 @@ async def ingest_arxiv(
             ignore_checkpoint = True
         else:
             # 获取上次检查点
-            last_checkpoint = get_last_checkpoint(session, "arxiv")
-            if last_checkpoint:
+            checkpoint = get_last_checkpoint(session, "arxiv")
+            last_checkpoint = checkpoint or (datetime.now(UTC) - timedelta(days=7))
+            if checkpoint:
                 # 确保 checkpoint 有时区信息（如果从数据库读取的是 naive datetime）
                 if last_checkpoint.tzinfo is None:
                     last_checkpoint = last_checkpoint.replace(tzinfo=UTC)
                 logger.info(f"上次检查点: {last_checkpoint}")
             else:
                 # 如果没有检查点，使用 7 天前作为默认值
-                last_checkpoint = datetime.now(UTC) - timedelta(days=7)
                 logger.info(f"无历史检查点，使用默认值: {last_checkpoint}")
 
         # 查询 arXiv（批量处理）

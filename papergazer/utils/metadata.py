@@ -7,10 +7,11 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote_plus
 
 import httpx
+from sqlalchemy.orm import Session
 
 from papergazer.store.db import (
     PaperItem,
@@ -54,7 +55,8 @@ def fetch_crossref_metadata(
                 logger.warning("Crossref 未找到 DOI: %s", doi)
                 return None
             resp.raise_for_status()
-            return resp.json().get("message")
+            message = resp.json().get("message")
+            return cast(dict[str, Any], message) if isinstance(message, dict) else None
     except httpx.HTTPError as exc:
         raise MetadataFetchError(f"Crossref 请求失败 ({doi}): {exc}") from exc
 
@@ -78,7 +80,8 @@ def fetch_openalex_metadata(
                 logger.warning("OpenAlex 未找到 DOI: %s", doi)
                 return None
             resp.raise_for_status()
-            return resp.json()
+            data = resp.json()
+            return cast(dict[str, Any], data) if isinstance(data, dict) else None
     except httpx.HTTPError as exc:
         raise MetadataFetchError(f"OpenAlex 请求失败 ({doi}): {exc}") from exc
 
@@ -102,13 +105,14 @@ def fetch_unpaywall_metadata(
                 logger.warning("Unpaywall 未找到 DOI: %s", doi)
                 return None
             resp.raise_for_status()
-            return resp.json()
+            data = resp.json()
+            return cast(dict[str, Any], data) if isinstance(data, dict) else None
     except httpx.HTTPError as exc:
         raise MetadataFetchError(f"Unpaywall 请求失败 ({doi}): {exc}") from exc
 
 
 def _select_papers(
-    session,
+    session: Session,
     column_name: str,
     limit: int | None,
     *,
@@ -126,7 +130,7 @@ def _select_papers(
     query = query.order_by(PaperItem.ingested_at.desc())
     if limit:
         query = query.limit(limit)
-    return query.all()
+    return cast(list[PaperItem], query.all())
 
 
 def update_paper_from_crossref(paper: PaperItem, message: dict) -> None:
@@ -264,6 +268,9 @@ def enrich_crossref_metadata(
             logger.info("[Crossref] dry-run 预计更新 #%s (%s)", paper.id, paper.doi)
             continue
         try:
+            if not paper.doi:
+                skipped += 1
+                continue
             message = fetch_crossref_metadata(paper.doi, mailto)
             if not message:
                 skipped += 1
@@ -338,6 +345,9 @@ def enrich_openalex_metadata(
             logger.info("[OpenAlex] dry-run 预计更新 #%s (%s)", paper.id, paper.doi)
             continue
         try:
+            if not paper.doi:
+                skipped += 1
+                continue
             work = fetch_openalex_metadata(paper.doi, mailto)
             if not work:
                 skipped += 1
@@ -413,6 +423,9 @@ def enrich_unpaywall_metadata(
             logger.info("[Unpaywall] dry-run 预计更新 #%s (%s)", paper.id, paper.doi)
             continue
         try:
+            if not paper.doi:
+                skipped += 1
+                continue
             data = fetch_unpaywall_metadata(paper.doi, email)
             if not data:
                 skipped += 1

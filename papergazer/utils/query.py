@@ -380,6 +380,8 @@ async def query_unpaywall_by_days(
             from papergazer.sources.crossref import fetch_crossref_by_doi
 
             for item in items:
+                if not item.doi:
+                    continue
                 try:
                     oa_info = await best_oa(item.doi, config.mailto)
                     db_item = session.query(PaperItem).filter_by(id=item.id).first()

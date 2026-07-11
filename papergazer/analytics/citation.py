@@ -8,6 +8,7 @@ import json
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from papergazer.config import Settings
 from papergazer.store.db import (
@@ -77,6 +78,9 @@ def build_citation_graph(
         }
 
         for paper in papers:
+            if not paper.references_json:
+                stats["skipped"] += 1
+                continue
             try:
                 references = json.loads(paper.references_json)
             except (json.JSONDecodeError, TypeError):
@@ -164,7 +168,7 @@ def summarize_citation_network(
     now = datetime.now(UTC)
     cutoff = now - timedelta(days=since_days) if since_days else None
 
-    stats = {
+    stats: dict[str, Any] = {
         "nodes": 0,
         "edges": 0,
         "pagerank": [],
@@ -254,7 +258,7 @@ def analyze_collaboration_network(
     now = datetime.now(UTC)
     cutoff = now - timedelta(days=since_days) if since_days else None
 
-    stats = {
+    stats: dict[str, Any] = {
         "since": cutoff.isoformat() if cutoff else None,
         "edges": [],
         "papers": 0,
@@ -298,13 +302,13 @@ def analyze_collaboration_network(
                 for dst in node_labels[i + 1 :]:
                     edge_counter[(src, dst)] += 1
 
-        filtered_edges = [
+        filtered_edges: list[dict[str, str | int]] = [
             {"source": src, "target": dst, "weight": weight}
             for (src, dst), weight in edge_counter.items()
             if weight >= min_weight
         ]
 
-        filtered_edges.sort(key=lambda item: item["weight"], reverse=True)
+        filtered_edges.sort(key=lambda item: int(item["weight"]), reverse=True)
         stats["edges"] = filtered_edges[:top]
         logger.info("机构合作网络：统计 %s 条边，since=%s", len(filtered_edges), stats["since"])
         return stats

@@ -13,6 +13,7 @@ import re
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from papergazer.config import Settings
 from papergazer.store.db import (
@@ -122,7 +123,7 @@ def generate_embeddings_for_papers(
     init_db(config.store.db_path)
     session = get_session()
 
-    stats = {
+    stats: dict[str, Any] = {
         "papers": 0,
         "processed": 0,
         "embedded": 0,

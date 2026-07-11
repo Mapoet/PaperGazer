@@ -44,7 +44,7 @@ async def doi_to_pmcid(doi: str) -> str | None:
 
         for item in results:
             if "pmcid" in item:
-                return item["pmcid"]
+                return str(item["pmcid"])
 
     return None
 
@@ -124,7 +124,7 @@ async def search_articles_by_date(
 
     async with async_client(timeout=60.0) as client:
         while total_fetched < max_results:
-            params = {
+            params: dict[str, str | int] = {
                 "query": query,
                 "format": "json",
                 "pageSize": min(page_size, 1000),  # API限制最大1000

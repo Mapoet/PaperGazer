@@ -63,6 +63,9 @@ async def download_arxiv_papers(
         skipped_count = 0
 
         for item in items:
+            if not item.doi:
+                skipped_count += 1
+                continue
             try:
                 # 使用 identifier（arXiv ID）下载
                 result = await fetch_by_identifier(item.identifier, config)
@@ -151,9 +154,13 @@ async def download_oa_papers(
         skipped_count = 0
 
         for item in items:
+            doi = item.doi
+            if not doi:
+                skipped_count += 1
+                continue
             try:
                 # 使用 DOI 下载
-                result = await fetch_by_identifier(item.doi, config)
+                result = await fetch_by_identifier(doi, config)
 
                 if result["success"]:
                     success_count += 1

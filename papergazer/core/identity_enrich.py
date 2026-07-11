@@ -190,10 +190,10 @@ def enrich_identities(
                 session.query(AffiliationIdentity).filter_by(paper_id=paper.id).delete()
                 session.flush()
 
-            for record in author_records:
-                session.add(record)
-            for record in affiliation_records:
-                session.add(record)
+            for author_record in author_records:
+                session.add(author_record)
+            for affiliation_record in affiliation_records:
+                session.add(affiliation_record)
 
             session.commit()
 

@@ -64,7 +64,7 @@ async def fetch_crossref_issn_increment(
         f"{issn_filter},type:journal-article,from-pub-date:{since_str},until-pub-date:{until_str}"
     )
 
-    params = {
+    params: dict[str, str | int] = {
         "filter": filter_str,
         "select": "DOI,title,author,issued,published-online,published-print,container-title,ISSN,link,abstract",
         "rows": min(rows, 1000),
@@ -81,7 +81,7 @@ async def fetch_crossref_issn_increment(
 
         while iteration < max_iterations:
             iteration += 1
-            current_cursor = params.get("cursor", "*")
+            current_cursor = str(params.get("cursor", "*"))
 
             # 检查是否遇到重复的游标
             if current_cursor in seen_cursors:

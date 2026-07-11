@@ -126,11 +126,11 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
             if response.status_code == 403 and "mdpi.com" in url:
                 from urllib.parse import urlsplit
 
-                parsed = urlsplit(url)
-                pdf_path = parsed.path
+                split_result = urlsplit(url)
+                pdf_path = split_result.path
                 landing_path = pdf_path.split("/pdf")[0]
-                landing_url = f"{parsed.scheme}://{parsed.netloc}{landing_path}"
-                download_url = f"{parsed.scheme}://{parsed.netloc}{pdf_path}?download=1"
+                landing_url = f"{split_result.scheme}://{split_result.netloc}{landing_path}"
+                download_url = f"{split_result.scheme}://{split_result.netloc}{pdf_path}?download=1"
 
                 logger.info("MDPI 返回 403，尝试先访问落地页获取授权 Cookie")
                 await client.get(landing_url)

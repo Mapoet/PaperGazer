@@ -8,7 +8,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from papergazer.config import IdentityConfig
 from papergazer.utils.http_client import sync_client
@@ -33,7 +33,8 @@ class IdentityCache:
             return None
         try:
             with path.open("r", encoding="utf-8") as fh:
-                return json.load(fh)
+                payload = json.load(fh)
+                return cast(dict[str, Any], payload) if isinstance(payload, dict) else None
         except json.JSONDecodeError:
             logger.warning("身份缓存损坏，忽略: %s", path)
             return None
@@ -57,7 +58,10 @@ def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> lis
     cache_key = f"orcid::{normalized}"
     cached = cache.load("orcid", cache_key)
     if cached is not None:
-        return cached.get("results", [])
+        cached_results = cached.get("results", [])
+        return (
+            cast(list[dict[str, Any]], cached_results) if isinstance(cached_results, list) else []
+        )
 
     headers = {"Accept": "application/json"}
     if config.orcid.token:
@@ -99,7 +103,7 @@ def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> lis
         )
 
     cache.store("orcid", cache_key, {"results": results})
-    return results
+    return list(results)
 
 
 def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> list[dict[str, Any]]:
@@ -110,7 +114,10 @@ def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> list[
     cache_key = f"ror::{normalized}"
     cached = cache.load("ror", cache_key)
     if cached is not None:
-        return cached.get("results", [])
+        cached_results = cached.get("results", [])
+        return (
+            cast(list[dict[str, Any]], cached_results) if isinstance(cached_results, list) else []
+        )
 
     params = {
         "query": name,
@@ -146,7 +153,7 @@ def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> list[
         )
 
     cache.store("ror", cache_key, {"results": results})
-    return results
+    return list(results)
 
 
 def build_cache(config: IdentityConfig) -> IdentityCache:

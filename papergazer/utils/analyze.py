@@ -84,9 +84,9 @@ def analyze_authors_by_days(
 
         items = query.all()
 
-        author_counter = Counter()
-        author_affiliations = defaultdict(set)
-        author_papers = defaultdict(list)
+        author_counter: Counter[str] = Counter()
+        author_affiliations: defaultdict[str, set[str]] = defaultdict(set)
+        author_papers: defaultdict[str, list[dict[str, object]]] = defaultdict(list)
 
         for item in items:
             if not item.authors_json:
@@ -170,14 +170,17 @@ def analyze_abstracts_by_days(
         abstracts_without = 0
         total_length = 0
         length_distribution = []
-        source_stats = defaultdict(lambda: {"with": 0, "without": 0, "total_length": 0})
+        source_stats: defaultdict[str, dict[str, int]] = defaultdict(
+            lambda: {"with": 0, "without": 0, "total_length": 0}
+        )
 
         for item in items:
-            has_abstract = item.abstract_jats and len(item.abstract_jats.strip()) >= min_length
+            abstract = item.abstract_jats or ""
+            has_abstract = len(abstract.strip()) >= min_length
 
             if has_abstract:
                 abstracts_with += 1
-                length = len(item.abstract_jats)
+                length = len(abstract)
                 total_length += length
                 length_distribution.append(length)
                 source_stats[item.source]["with"] += 1
@@ -235,8 +238,10 @@ def analyze_oa_status_by_days(
         oa_count = 0
         non_oa_count = 0
         unknown_count = 0
-        oa_sources = Counter()
-        source_stats = defaultdict(lambda: {"oa": 0, "non_oa": 0, "unknown": 0, "total": 0})
+        oa_sources: Counter[str] = Counter()
+        source_stats: defaultdict[str, dict[str, int]] = defaultdict(
+            lambda: {"oa": 0, "non_oa": 0, "unknown": 0, "total": 0}
+        )
 
         for item in items:
             source_stats[item.source]["total"] += 1
@@ -298,8 +303,8 @@ def analyze_venues_by_days(
 
         items = query.all()
 
-        venue_counter = Counter()
-        venue_sources = defaultdict(set)
+        venue_counter: Counter[str] = Counter()
+        venue_sources: defaultdict[str, set[str]] = defaultdict(set)
 
         for item in items:
             if item.venue:

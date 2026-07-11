@@ -57,8 +57,8 @@ def monitor_oa(
         papers = query.all()
 
         total_count = len(papers)
-        oa_status_counter = Counter()
-        license_counter = Counter()
+        oa_status_counter: Counter[str] = Counter()
+        license_counter: Counter[str] = Counter()
         oa_count = 0
         gold_count = 0
         green_count = 0

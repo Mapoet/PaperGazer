@@ -8,6 +8,7 @@ import json
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from papergazer.config import Settings
 from papergazer.store.db import ConceptMetric, PaperItem, get_session, init_db
@@ -69,11 +70,13 @@ def analyze_concepts(
 
         papers = query.all()
 
-        counts: dict[str, dict[str, float]] = defaultdict(
+        counts: dict[str, dict[str, Any]] = defaultdict(
             lambda: {"count": 0, "score_sum": 0.0, "name": "", "level": None}
         )
 
         for paper in papers:
+            if not paper.concepts_json:
+                continue
             try:
                 concepts = json.loads(paper.concepts_json)
             except (json.JSONDecodeError, TypeError):

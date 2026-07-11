@@ -11,6 +11,7 @@ import json
 import logging
 from collections import defaultdict, deque
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from papergazer.config import Settings
 from papergazer.store.db import PaperItem, get_session, init_db
@@ -59,7 +60,7 @@ def analyze_topic_trends(
     now = datetime.now(UTC)
     cutoff = now - timedelta(days=since_years * 365)
 
-    stats: dict[str, object] = {
+    stats: dict[str, Any] = {
         "granularity": granularity,
         "since": cutoff.date(),
         "top": top,
@@ -81,6 +82,8 @@ def analyze_topic_trends(
         concept_meta: dict[str, dict[str, object]] = {}
 
         for paper in papers:
+            if not paper.concepts_json:
+                continue
             try:
                 concepts = json.loads(paper.concepts_json)
             except (json.JSONDecodeError, TypeError):

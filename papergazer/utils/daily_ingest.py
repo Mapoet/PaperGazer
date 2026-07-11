@@ -110,11 +110,10 @@ async def daily_ingest_all(
         results["unpaywall"] = {"stats": {}, "status": "error", "error": str(e)}
 
     # 统计总结果
-    total_count = (
-        results.get("arxiv", {}).get("count", 0)
-        + results.get("crossref", {}).get("count", 0)
-        + results.get("eupmc", {}).get("count", 0)
-    )
+    raw_counts = [
+        results.get(source, {}).get("count", 0) for source in ("arxiv", "crossref", "eupmc")
+    ]
+    total_count = sum(value for value in raw_counts if isinstance(value, int))
 
     logger.info(f"每日巡检任务完成，总计处理 {total_count} 条记录")
 
