@@ -111,6 +111,7 @@ class PipelineRepository:
         else:
             job.status = JobStatus.RETRYABLE.value
             job.next_retry_at = datetime.now(UTC) + retry_delay
+        self.session.flush()
 
     def resumable_jobs(self, run: PipelineRun, *, now: datetime | None = None) -> list[PipelineJob]:
         current = now or datetime.now(UTC)

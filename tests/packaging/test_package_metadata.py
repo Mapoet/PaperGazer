@@ -23,9 +23,11 @@ def test_all_runtime_packages_are_discovered() -> None:
 def test_pyproject_uses_recursive_package_discovery() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     setuptools = metadata["tool"]["setuptools"]
+    packages = setuptools["packages"]
 
-    assert "packages" not in setuptools
-    assert setuptools["packages"]["find"]["include"] == ["papergazer*"]
+    assert isinstance(packages, dict)
+    assert "find" in packages
+    assert packages["find"]["include"] == ["papergazer*"]
 
 
 def test_imported_lxml_is_a_runtime_dependency() -> None:
