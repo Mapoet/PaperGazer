@@ -13,16 +13,17 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from rich.console import Console
+from rich.table import Table
+
 from papergazer.config import load_config
 from papergazer.utils import (
     query_all_sources_by_days,
     search_papers_by_author,
-    search_papers_by_venue,
     search_papers_by_keyword,
+    search_papers_by_venue,
     setup_logging,
 )
-from rich.console import Console
-from rich.table import Table
 
 console = Console()
 
@@ -50,16 +51,20 @@ def print_usage():
     console.print("\n  keyword <keyword> [--in title|abstract|both] [--limit N] [sources...]")
     console.print("    - 按关键词搜索论文（标题和/或摘要）")
     console.print("    - keyword: 搜索关键词（支持部分匹配）")
-    console.print("    - --in: 搜索范围，可选：title（仅标题）、abstract（仅摘要）、both（标题和摘要，默认）")
+    console.print(
+        "    - --in: 搜索范围，可选：title（仅标题）、abstract（仅摘要）、both（标题和摘要，默认）"
+    )
     console.print("    - --limit N: 限制返回数量（默认不限制）")
     console.print("    - sources: 数据源列表")
     console.print("\n[bold cyan]示例:[/bold cyan]")
     console.print("  python scripts/query_papers.py days 7")
     console.print("  python scripts/query_papers.py days 7 --ingest")
-    console.print("  python scripts/query_papers.py author \"Einstein\" --limit 10")
-    console.print("  python scripts/query_papers.py venue \"Nature\" --limit 20")
-    console.print("  python scripts/query_papers.py keyword \"machine learning\" --in both --limit 50")
-    console.print("  python scripts/query_papers.py keyword \"GNSS\" --in title arxiv crossref")
+    console.print('  python scripts/query_papers.py author "Einstein" --limit 10')
+    console.print('  python scripts/query_papers.py venue "Nature" --limit 20')
+    console.print(
+        '  python scripts/query_papers.py keyword "machine learning" --in both --limit 50'
+    )
+    console.print('  python scripts/query_papers.py keyword "GNSS" --in title arxiv crossref')
 
 
 async def query_by_days(args):
@@ -67,13 +72,13 @@ async def query_by_days(args):
     if len(args) < 1:
         console.print("[bold red]错误: 缺少天数参数[/bold red]")
         return
-    
+
     try:
         days = int(args[0])
     except ValueError:
         console.print(f"[bold red]错误: 无效的天数: {args[0]}[/bold red]")
         return
-    
+
     # 解析参数
     ingest = False
     sources = []
@@ -82,7 +87,7 @@ async def query_by_days(args):
             ingest = True
         else:
             sources.append(arg)
-    
+
     sources = sources if sources else None
 
     if ingest:
@@ -94,9 +99,9 @@ async def query_by_days(args):
     config_path = project_root / "configs" / "config.test.yaml"
     if not config_path.exists():
         config_path = project_root / "configs" / "config.yaml"
-    
+
     if not config_path.exists():
-        console.print(f"[bold red]配置文件不存在[/bold red]")
+        console.print("[bold red]配置文件不存在[/bold red]")
         return
 
     try:
@@ -153,6 +158,7 @@ async def query_by_days(args):
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
         import traceback
+
         console.print(traceback.format_exc())
 
 
@@ -161,9 +167,9 @@ def query_by_author(args):
     if len(args) < 1:
         console.print("[bold red]错误: 缺少作者名称参数[/bold red]")
         return
-    
+
     author_name = args[0]
-    
+
     # 解析参数
     limit = None
     sources = []
@@ -179,7 +185,7 @@ def query_by_author(args):
         else:
             sources.append(args[i])
             i += 1
-    
+
     sources = sources if sources else None
 
     console.print(f"[bold green]搜索作者: {author_name}[/bold green]")
@@ -188,17 +194,18 @@ def query_by_author(args):
     config_path = project_root / "configs" / "config.test.yaml"
     if not config_path.exists():
         config_path = project_root / "configs" / "config.yaml"
-    
+
     if not config_path.exists():
-        console.print(f"[bold red]配置文件不存在[/bold red]")
+        console.print("[bold red]配置文件不存在[/bold red]")
         return
 
     try:
         config = load_config(config_path)
         setup_logging(config.logging)
-        
+
         # 初始化数据库
         from papergazer.store.db import init_db
+
         init_db(config.store.db_path)
 
         # 执行搜索
@@ -243,11 +250,12 @@ def query_by_author(args):
             console.print(table)
             console.print(f"\n[bold cyan]共找到 {len(papers)} 篇论文[/bold cyan]")
         else:
-            console.print(f"[yellow]未找到匹配的论文[/yellow]")
+            console.print("[yellow]未找到匹配的论文[/yellow]")
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
         import traceback
+
         console.print(traceback.format_exc())
 
 
@@ -256,9 +264,9 @@ def query_by_venue(args):
     if len(args) < 1:
         console.print("[bold red]错误: 缺少期刊名称参数[/bold red]")
         return
-    
+
     venue_name = args[0]
-    
+
     # 解析参数
     limit = None
     sources = []
@@ -274,7 +282,7 @@ def query_by_venue(args):
         else:
             sources.append(args[i])
             i += 1
-    
+
     sources = sources if sources else None
 
     console.print(f"[bold green]搜索期刊: {venue_name}[/bold green]")
@@ -283,17 +291,18 @@ def query_by_venue(args):
     config_path = project_root / "configs" / "config.test.yaml"
     if not config_path.exists():
         config_path = project_root / "configs" / "config.yaml"
-    
+
     if not config_path.exists():
-        console.print(f"[bold red]配置文件不存在[/bold red]")
+        console.print("[bold red]配置文件不存在[/bold red]")
         return
 
     try:
         config = load_config(config_path)
         setup_logging(config.logging)
-        
+
         # 初始化数据库
         from papergazer.store.db import init_db
+
         init_db(config.store.db_path)
 
         # 执行搜索
@@ -333,11 +342,12 @@ def query_by_venue(args):
             console.print(table)
             console.print(f"\n[bold cyan]共找到 {len(papers)} 篇论文[/bold cyan]")
         else:
-            console.print(f"[yellow]未找到匹配的论文[/yellow]")
+            console.print("[yellow]未找到匹配的论文[/yellow]")
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
         import traceback
+
         console.print(traceback.format_exc())
 
 
@@ -346,9 +356,9 @@ def query_by_keyword(args):
     if len(args) < 1:
         console.print("[bold red]错误: 缺少关键词参数[/bold red]")
         return
-    
+
     keyword = args[0]
-    
+
     # 解析参数
     search_in = "both"
     limit = None
@@ -371,7 +381,7 @@ def query_by_keyword(args):
         else:
             sources.append(args[i])
             i += 1
-    
+
     sources = sources if sources else None
 
     search_in_text = {"title": "标题", "abstract": "摘要", "both": "标题和摘要"}[search_in]
@@ -381,17 +391,18 @@ def query_by_keyword(args):
     config_path = project_root / "configs" / "config.test.yaml"
     if not config_path.exists():
         config_path = project_root / "configs" / "config.yaml"
-    
+
     if not config_path.exists():
-        console.print(f"[bold red]配置文件不存在[/bold red]")
+        console.print("[bold red]配置文件不存在[/bold red]")
         return
 
     try:
         config = load_config(config_path)
         setup_logging(config.logging)
-        
+
         # 初始化数据库
         from papergazer.store.db import init_db
+
         init_db(config.store.db_path)
 
         # 执行搜索
@@ -440,11 +451,12 @@ def query_by_keyword(args):
             console.print(table)
             console.print(f"\n[bold cyan]共找到 {len(papers)} 篇论文[/bold cyan]")
         else:
-            console.print(f"[yellow]未找到匹配的论文[/yellow]")
+            console.print("[yellow]未找到匹配的论文[/yellow]")
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
         import traceback
+
         console.print(traceback.format_exc())
 
 

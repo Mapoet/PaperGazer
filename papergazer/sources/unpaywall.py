@@ -32,7 +32,7 @@ async def best_oa(doi: str, email: str) -> UnpaywallResponse:
 
     async with async_client(timeout=30.0) as client:
         response = await client.get(url, params=params)
-        
+
         # 处理422错误（通常是邮箱验证失败）
         if response.status_code == 422:
             error_data = response.json()
@@ -42,7 +42,7 @@ async def best_oa(doi: str, email: str) -> UnpaywallResponse:
                 request=response.request,
                 response=response,
             )
-        
+
         response.raise_for_status()
 
         data = response.json()
@@ -50,4 +50,3 @@ async def best_oa(doi: str, email: str) -> UnpaywallResponse:
             is_oa=data.get("is_oa", False),
             best_oa_location=data.get("best_oa_location"),
         )
-

@@ -8,16 +8,16 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from rich.console import Console  # noqa: E402
+from rich.table import Table  # noqa: E402
+
 from papergazer.config import load_config  # noqa: E402
 from papergazer.core.identity_enrich import enrich_identities  # noqa: E402
 from papergazer.utils import setup_logging  # noqa: E402
-from rich.console import Console  # noqa: E402
-from rich.table import Table  # noqa: E402
 
 console = Console()
 
@@ -49,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_config_path(raw: Optional[str]) -> Path:
+def resolve_config_path(raw: str | None) -> Path:
     if raw:
         path = Path(raw)
         if not path.is_absolute():
@@ -99,4 +99,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

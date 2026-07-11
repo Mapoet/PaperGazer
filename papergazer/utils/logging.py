@@ -57,4 +57,3 @@ def setup_logging(config: LoggingConfig) -> None:
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
-

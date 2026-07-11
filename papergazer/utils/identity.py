@@ -8,10 +8,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
-
-import httpx
+from typing import Any
 
 from papergazer.config import IdentityConfig
 from papergazer.utils.http_client import sync_client
@@ -30,7 +27,7 @@ class IdentityCache:
         digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
         return self.cache_dir / namespace / f"{digest}.json"
 
-    def load(self, namespace: str, key: str) -> Optional[Dict[str, Any]]:
+    def load(self, namespace: str, key: str) -> dict[str, Any] | None:
         path = self._path_for(namespace, key)
         if not path.exists():
             return None
@@ -41,7 +38,7 @@ class IdentityCache:
             logger.warning("身份缓存损坏，忽略: %s", path)
             return None
 
-    def store(self, namespace: str, key: str, payload: Dict[str, Any]) -> None:
+    def store(self, namespace: str, key: str, payload: dict[str, Any]) -> None:
         path = self._path_for(namespace, key)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as fh:
@@ -52,7 +49,7 @@ def normalize_name(name: str) -> str:
     return " ".join(part.strip().lower() for part in name.split() if part.strip())
 
 
-def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> List[Dict[str, Any]]:
+def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> list[dict[str, Any]]:
     if not config.orcid.enabled:
         return []
 
@@ -85,7 +82,7 @@ def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> Lis
         return []
 
     expanded = data.get("expanded-result", [])
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for item in expanded[: config.orcid.max_results]:
         display_status = item.get("display-name", "")
         score = float(item.get("relevancy-score", 0.0) or 0.0)
@@ -105,7 +102,7 @@ def search_orcid(name: str, config: IdentityConfig, cache: IdentityCache) -> Lis
     return results
 
 
-def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> List[Dict[str, Any]]:
+def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> list[dict[str, Any]]:
     if not config.ror.enabled:
         return []
 
@@ -130,7 +127,7 @@ def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> List[
         return []
 
     items = data.get("items", [])
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for item in items[: config.ror.max_results]:
         score = float(item.get("score") or 0.0)
         if score < config.ror.min_score:
@@ -154,4 +151,3 @@ def search_ror(name: str, config: IdentityConfig, cache: IdentityCache) -> List[
 
 def build_cache(config: IdentityConfig) -> IdentityCache:
     return IdentityCache(config.cache_dir)
-

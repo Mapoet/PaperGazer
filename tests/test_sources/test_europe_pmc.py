@@ -2,8 +2,9 @@
 Europe PMC 数据源模块测试
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, Mock
 
 from papergazer.sources.europe_pmc import doi_to_pmcid, fetch_fulltext_xml
 
@@ -104,4 +105,3 @@ async def test_fetch_fulltext_xml_with_pmc_prefix():
         mock_client_instance.get.assert_called_once()
         call_args = mock_client_instance.get.call_args[0][0]
         assert "PMC" not in call_args or call_args.endswith("/123456/fullTextXML")
-

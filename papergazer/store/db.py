@@ -3,24 +3,23 @@
 """
 
 import json
-from datetime import date, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional, Union
 
 from sqlalchemy import (
     Boolean,
     Column,
     Date,
     DateTime,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     create_engine,
-    Index,
     text,
 )
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from papergazer.models import Author, PaperMetadata
 
@@ -68,7 +67,7 @@ class PaperItem(Base):
     oa_status = Column(String(50))
     oa_license = Column(String(100))
     cited_by_count = Column(Integer)
-    ingested_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    ingested_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
     hash = Column(String(64))  # 文件哈希（SHA256）
 
     __table_args__ = (
@@ -104,7 +103,9 @@ class PaperItem(Base):
     @classmethod
     def from_metadata(cls, metadata: PaperMetadata) -> "PaperItem":
         """从 PaperMetadata 创建 PaperItem"""
-        authors_json = json.dumps([{"name": a.name, "affiliation": a.affiliation} for a in metadata.authors])
+        authors_json = json.dumps(
+            [{"name": a.name, "affiliation": a.affiliation} for a in metadata.authors]
+        )
 
         return cls(
             source=metadata.source,
@@ -131,7 +132,7 @@ class RunRecord(Base):
     source = Column(String(50), nullable=False, index=True)  # 'arxiv' | 'crossref'
     last_checkpoint = Column(DateTime, nullable=False)
     items_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     cursor = Column(Text)
     summary_json = Column(Text)
 
@@ -149,7 +150,7 @@ class AuthorIdentity(Base):
     orcid = Column(String(32))
     confidence = Column(String(32))
     metadata_json = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
         UniqueConstraint("paper_id", "local_index", name="uq_author_identity_unique"),
@@ -172,7 +173,7 @@ class AffiliationIdentity(Base):
     longitude = Column(String(32))
     confidence = Column(String(32))
     metadata_json = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
         UniqueConstraint("paper_id", "local_index", name="uq_affiliation_identity_unique"),
@@ -191,7 +192,7 @@ class CitationEdge(Base):
     relation_type = Column(String(64))
     weight = Column(Integer, default=1)
     raw_reference_json = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
 
 class ConceptMetric(Base):
@@ -207,7 +208,7 @@ class ConceptMetric(Base):
     avg_score = Column(String(32))
     window_start = Column(DateTime, index=True, nullable=False)
     window_end = Column(DateTime, index=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
     metadata_json = Column(Text)
 
 
@@ -228,7 +229,7 @@ class OAMetric(Base):
     license_json = Column(Text)
     data_link_count = Column(Integer, default=0)
     code_link_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
     metadata_json = Column(Text)
 
 
@@ -243,11 +244,9 @@ class PaperEmbedding(Base):
     vector_json = Column(Text, nullable=False)
     dimension = Column(Integer, nullable=False)
     source_fields = Column(String(255))
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
-    __table_args__ = (
-        UniqueConstraint("paper_id", "model_name", name="uq_embedding_paper_model"),
-    )
+    __table_args__ = (UniqueConstraint("paper_id", "model_name", name="uq_embedding_paper_model"),)
 
 
 # 全局变量
@@ -255,7 +254,7 @@ _engine = None
 _SessionLocal = None
 
 
-def init_db(db_path: Union[str, Path]) -> None:
+def init_db(db_path: str | Path) -> None:
     """
     初始化数据库
 
@@ -304,7 +303,9 @@ def _ensure_schema(engine) -> None:
     确保数据库表包含最新的列（用于轻量级 schema 迁移）
     """
 
-    with engine.connect() as conn:
+    # Schema changes must be committed atomically.  ``engine.connect()`` rolls
+    # back an open SQLAlchemy 2.x transaction when the connection closes.
+    with engine.begin() as conn:
         result = conn.execute(text("PRAGMA table_info(items)"))
         columns = {row[1] for row in result}
 
@@ -401,12 +402,18 @@ def upsert_paper(session: Session, metadata: PaperMetadata) -> PaperItem:
     if metadata.doi:
         existing = session.query(PaperItem).filter_by(doi=metadata.doi).first()
     if not existing:
-        existing = session.query(PaperItem).filter_by(source=metadata.source, identifier=metadata.identifier).first()
+        existing = (
+            session.query(PaperItem)
+            .filter_by(source=metadata.source, identifier=metadata.identifier)
+            .first()
+        )
 
     if existing:
         # 更新现有记录
         existing.title = metadata.title
-        existing.authors_json = json.dumps([{"name": a.name, "affiliation": a.affiliation} for a in metadata.authors])
+        existing.authors_json = json.dumps(
+            [{"name": a.name, "affiliation": a.affiliation} for a in metadata.authors]
+        )
         existing.venue = metadata.venue
         existing.issn_print = metadata.issn_print
         existing.issn_online = metadata.issn_online
@@ -423,7 +430,7 @@ def upsert_paper(session: Session, metadata: PaperMetadata) -> PaperItem:
         return item
 
 
-def get_last_checkpoint(session: Session, source: str) -> Optional[datetime]:
+def get_last_checkpoint(session: Session, source: str) -> datetime | None:
     """
     获取上次巡检检查点
 
@@ -434,11 +441,16 @@ def get_last_checkpoint(session: Session, source: str) -> Optional[datetime]:
     Returns:
         上次检查点时间或 None
     """
-    record = session.query(RunRecord).filter_by(source=source).order_by(RunRecord.created_at.desc()).first()
+    record = (
+        session.query(RunRecord)
+        .filter_by(source=source)
+        .order_by(RunRecord.created_at.desc())
+        .first()
+    )
     return record.last_checkpoint if record else None
 
 
-def get_last_run(session: Session, source: str) -> Optional[RunRecord]:
+def get_last_run(session: Session, source: str) -> RunRecord | None:
     """
     获取最新的运行记录
 
@@ -449,7 +461,12 @@ def get_last_run(session: Session, source: str) -> Optional[RunRecord]:
     Returns:
         RunRecord 或 None
     """
-    return session.query(RunRecord).filter_by(source=source).order_by(RunRecord.created_at.desc()).first()
+    return (
+        session.query(RunRecord)
+        .filter_by(source=source)
+        .order_by(RunRecord.created_at.desc())
+        .first()
+    )
 
 
 def update_checkpoint(
@@ -458,8 +475,8 @@ def update_checkpoint(
     checkpoint: datetime,
     items_count: int = 0,
     *,
-    cursor: Optional[str] = None,
-    summary_json: Optional[str] = None,
+    cursor: str | None = None,
+    summary_json: str | None = None,
 ) -> None:
     """
     更新巡检检查点
@@ -478,4 +495,3 @@ def update_checkpoint(
         summary_json=summary_json,
     )
     session.add(record)
-

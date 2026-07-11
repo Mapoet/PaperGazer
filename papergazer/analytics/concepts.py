@@ -7,8 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
 
 from papergazer.config import Settings
 from papergazer.store.db import ConceptMetric, PaperItem, get_session, init_db
@@ -21,13 +20,13 @@ def analyze_concepts(
     config: Settings,
     *,
     window_days: int = 30,
-    since_days: Optional[int] = None,
-    limit: Optional[int] = None,
-    sources: Optional[List[str]] = None,
+    since_days: int | None = None,
+    limit: int | None = None,
+    sources: list[str] | None = None,
     top: int = 20,
     persist: bool = False,
     dry_run: bool = False,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """
     分析概念热度
 
@@ -47,7 +46,7 @@ def analyze_concepts(
     init_db(config.store.db_path)
     session = get_session()
 
-    window_end = datetime.now(timezone.utc)
+    window_end = datetime.now(UTC)
     window_start = window_end - timedelta(days=window_days)
 
     try:
@@ -70,7 +69,7 @@ def analyze_concepts(
 
         papers = query.all()
 
-        counts: Dict[str, Dict[str, float]] = defaultdict(
+        counts: dict[str, dict[str, float]] = defaultdict(
             lambda: {"count": 0, "score_sum": 0.0, "name": "", "level": None}
         )
 
@@ -98,7 +97,7 @@ def analyze_concepts(
                 counts[key]["name"] = display_name
                 counts[key]["level"] = level
 
-        top_concepts: List[Tuple[str, Dict[str, float]]] = sorted(
+        top_concepts: list[tuple[str, dict[str, float]]] = sorted(
             counts.items(),
             key=lambda kv: (kv[1]["count"], kv[1]["score_sum"]),
             reverse=True,
@@ -157,4 +156,3 @@ def analyze_concepts(
         return result
     finally:
         session.close()
-

@@ -3,13 +3,12 @@ Europe PMC API 封装：DOI → PMCID → FullTextXML
 """
 
 import logging
+from collections.abc import AsyncIterator
 from datetime import date, datetime
-from typing import AsyncIterator, Dict, Optional, Union
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from papergazer.models import EuropePMCResult
 from papergazer.utils.http_client import async_client
 
 logger = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ EUROPE_PMC_API_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest"
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-async def doi_to_pmcid(doi: str) -> Optional[str]:
+async def doi_to_pmcid(doi: str) -> str | None:
     """
     通过 DOI 获取 PMCID
 
@@ -83,11 +82,11 @@ async def fetch_fulltext_xml(pmcid: str) -> bytes:
     reraise=True,
 )
 async def search_articles_by_date(
-    from_date: Union[date, datetime, str],
-    to_date: Optional[Union[date, datetime, str]] = None,
+    from_date: date | datetime | str,
+    to_date: date | datetime | str | None = None,
     page_size: int = 25,
     max_results: int = 1000,
-) -> AsyncIterator[Dict]:
+) -> AsyncIterator[dict]:
     """
     按发布日期搜索文章
 
@@ -119,7 +118,7 @@ async def search_articles_by_date(
 
     # 构建查询：使用 FIRST_PDATE 字段
     query = f"FIRST_PDATE:[{from_date_str} TO {to_date_str}]"
-    
+
     page = 1
     total_fetched = 0
 
@@ -143,13 +142,13 @@ async def search_articles_by_date(
                 results = result_list.get("result", [])
                 # hitCount 可能在不同位置
                 total_hits = (
-                    result_list.get("hitCount", 0)
-                    or data.get("hitCount", 0)
-                    or len(results)
+                    result_list.get("hitCount", 0) or data.get("hitCount", 0) or len(results)
                 )
 
                 if page == 1:
-                    logger.info(f"Europe PMC API 总记录数: {total_hits} (当前页: {len(results)} 条)")
+                    logger.info(
+                        f"Europe PMC API 总记录数: {total_hits} (当前页: {len(results)} 条)"
+                    )
 
                 if not results:
                     logger.debug("返回空结果，退出循环")
@@ -168,6 +167,7 @@ async def search_articles_by_date(
                 page += 1
                 # 遵守API速率限制：每秒1次请求
                 import asyncio
+
                 await asyncio.sleep(1.1)
 
             except httpx.HTTPStatusError as e:
@@ -178,4 +178,3 @@ async def search_articles_by_date(
                 raise
 
     logger.info(f"Europe PMC 查询完成，获取 {total_fetched} 条记录")
-

@@ -7,8 +7,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from datetime import UTC, datetime, timedelta
 
 from papergazer.config import Settings
 from papergazer.store.db import OAMetric, PaperItem, get_session, init_db
@@ -29,10 +28,10 @@ def monitor_oa(
     config: Settings,
     *,
     window_days: int = 30,
-    sources: Optional[list[str]] = None,
+    sources: list[str] | None = None,
     persist: bool = False,
     dry_run: bool = False,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """
     统计开放获取与 FAIR 指标
 
@@ -46,7 +45,7 @@ def monitor_oa(
     init_db(config.store.db_path)
     session = get_session()
 
-    window_end = datetime.now(timezone.utc)
+    window_end = datetime.now(UTC)
     window_start = window_end - timedelta(days=window_days)
 
     try:
@@ -87,7 +86,9 @@ def monitor_oa(
                     licenses = json.loads(paper.license_json)
                     if isinstance(licenses, list):
                         for lic in licenses:
-                            name = lic.get("URL") or lic.get("url") or lic.get("content-version") or ""
+                            name = (
+                                lic.get("URL") or lic.get("url") or lic.get("content-version") or ""
+                            )
                             if name:
                                 license_counter[name] += 1
                     elif isinstance(licenses, dict):
@@ -177,4 +178,3 @@ def monitor_oa(
         return result
     finally:
         session.close()
-

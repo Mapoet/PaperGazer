@@ -5,30 +5,29 @@
 import logging
 import re
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from papergazer.config import Settings
-from papergazer.utils.http_client import async_client
 from papergazer.exceptions import (
-    FetchError,
     ArxivAPIError,
-    UnpaywallAPIError,
-    EuropePMCAPIError,
     CrossrefAPIError,
+    EuropePMCAPIError,
+    FetchError,
     FileStorageError,
+    UnpaywallAPIError,
 )
 from papergazer.models import PaperMetadata
 from papergazer.sources import best_oa, crossref, doi_to_pmcid, fetch_fulltext_xml
 from papergazer.store.db import get_session, upsert_paper
 from papergazer.store.files import save_pdf, save_xml
+from papergazer.utils.http_client import async_client
 
 logger = logging.getLogger(__name__)
 
 
-def normalize_identifier(identifier: str) -> Tuple[str, str]:
+def normalize_identifier(identifier: str) -> tuple[str, str]:
     """
     规范化标识符，判断类型
 
@@ -93,33 +92,36 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
             headers=default_headers,
         ) as client:
             response = await _perform_request(client, url)
-            
+
             # 如果最终响应仍然是重定向状态码，说明重定向链没有成功完成，需要手动处理
             if response.status_code in (301, 302, 303, 307, 308):
                 if max_redirect_depth <= 0:
                     raise FetchError(f"重定向深度超过限制: {url}")
-                
+
                 redirect_location = response.headers.get("Location")
                 if not redirect_location:
                     raise FetchError(f"重定向响应但缺少 Location 头: {url}")
-                
+
                 # 构建完整的重定向 URL
                 from urllib.parse import urljoin, urlparse
+
                 if redirect_location.startswith("/"):
                     # 相对路径，使用原始 URL 的 scheme 和 netloc
                     parsed = urlparse(url)
                     redirect_url = f"{parsed.scheme}://{parsed.netloc}{redirect_location}"
-                elif redirect_location.startswith("http://") or redirect_location.startswith("https://"):
+                elif redirect_location.startswith("http://") or redirect_location.startswith(
+                    "https://"
+                ):
                     # 绝对 URL
                     redirect_url = redirect_location
                 else:
                     # 相对路径（相对于当前路径）
                     redirect_url = urljoin(url, redirect_location)
-                
+
                 logger.info(f"检测到重定向 {response.status_code}: {url} -> {redirect_url}")
                 # 手动跟随重定向，递归调用（但限制递归深度）
                 return await download_file(redirect_url, timeout, max_redirect_depth - 1)
-            
+
             # 针对部分出版社（如 MDPI）需要先访问落地页获取 Cookie，再访问 PDF
             if response.status_code == 403 and "mdpi.com" in url:
                 from urllib.parse import urlsplit
@@ -144,7 +146,7 @@ async def download_file(url: str, timeout: float = 60.0, max_redirect_depth: int
         raise FetchError(f"下载文件失败: {url}") from e
 
 
-async def fetch_arxiv_pdf(arxiv_id: str, papers_dir: Path) -> Tuple[Optional[Path], Optional[str]]:
+async def fetch_arxiv_pdf(arxiv_id: str, papers_dir: Path) -> tuple[Path | None, str | None]:
     """
     抓取 arXiv PDF
 
@@ -362,7 +364,13 @@ async def fetch_by_identifier(
             "error": error_msg,
         }
 
-    except (ArxivAPIError, UnpaywallAPIError, EuropePMCAPIError, CrossrefAPIError, FileStorageError) as e:
+    except (
+        ArxivAPIError,
+        UnpaywallAPIError,
+        EuropePMCAPIError,
+        CrossrefAPIError,
+        FileStorageError,
+    ) as e:
         session.rollback()
         error_msg = f"抓取失败: {type(e).__name__}: {e}"
         logger.error(error_msg, exc_info=True)
@@ -388,4 +396,3 @@ async def fetch_by_identifier(
         }
     finally:
         session.close()
-

@@ -2,19 +2,17 @@
 文件存储模块测试
 """
 
-import pytest
-from pathlib import Path
 from datetime import date
 
+from papergazer.models import PaperMetadata
 from papergazer.store.files import (
-    sanitize_identifier,
-    get_paper_path,
     compute_file_hash,
+    file_exists,
+    get_paper_path,
+    sanitize_identifier,
     save_pdf,
     save_xml,
-    file_exists,
 )
-from papergazer.models import PaperMetadata
 
 
 def test_sanitize_identifier():
@@ -149,4 +147,3 @@ def test_file_exists(temp_papers_dir):
     save_pdf(temp_papers_dir, metadata, pdf_content)
 
     assert file_exists(temp_papers_dir, metadata, "paper.pdf")
-

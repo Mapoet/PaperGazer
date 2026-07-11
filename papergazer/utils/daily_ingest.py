@@ -3,10 +3,8 @@
 支持定时执行多数据源的增量抓取
 """
 
-import asyncio
 import logging
-from datetime import date, datetime, timezone
-from typing import Dict, List, Optional, Union
+from datetime import UTC, date, datetime
 
 from papergazer.config import Settings
 from papergazer.core.ingest import ingest_arxiv, ingest_crossref
@@ -18,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 async def daily_ingest_all(
     config: Settings,
-    since: Optional[Union[datetime, date]] = None,
-    until: Optional[Union[datetime, date]] = None,
+    since: datetime | date | None = None,
+    until: datetime | date | None = None,
 ) -> dict:
     """
     执行每日巡检任务（所有数据源）
@@ -48,15 +46,15 @@ async def daily_ingest_all(
         arxiv_until = None
         if since is not None:
             if isinstance(since, date) and not isinstance(since, datetime):
-                arxiv_since = datetime.combine(since, datetime.min.time()).replace(tzinfo=timezone.utc)
+                arxiv_since = datetime.combine(since, datetime.min.time()).replace(tzinfo=UTC)
             elif isinstance(since, datetime):
                 arxiv_since = since
         if until is not None:
             if isinstance(until, date) and not isinstance(until, datetime):
-                arxiv_until = datetime.combine(until, datetime.max.time()).replace(tzinfo=timezone.utc)
+                arxiv_until = datetime.combine(until, datetime.max.time()).replace(tzinfo=UTC)
             elif isinstance(until, datetime):
                 arxiv_until = until
-        
+
         arxiv_count = await ingest_arxiv(config, since=arxiv_since, until=arxiv_until)
         results["arxiv"] = {"count": arxiv_count, "status": "success"}
         logger.info(f"arXiv 巡检完成，处理 {arxiv_count} 条记录")
@@ -80,7 +78,7 @@ async def daily_ingest_all(
                 crossref_until = until.date()
             else:
                 crossref_until = until
-        
+
         crossref_count = await ingest_crossref(config, since=crossref_since, until=crossref_until)
         results["crossref"] = {"count": crossref_count, "status": "success"}
         logger.info(f"Crossref 巡检完成，处理 {crossref_count} 条记录")
@@ -121,7 +119,7 @@ async def daily_ingest_all(
     logger.info(f"每日巡检任务完成，总计处理 {total_count} 条记录")
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "total_count": total_count,
         "results": results,
     }
@@ -129,9 +127,9 @@ async def daily_ingest_all(
 
 async def daily_ingest_sources(
     config: Settings,
-    sources: List[str],
-    since: Optional[Union[datetime, date]] = None,
-    until: Optional[Union[datetime, date]] = None,
+    sources: list[str],
+    since: datetime | date | None = None,
+    until: datetime | date | None = None,
 ) -> dict:
     """
     执行指定数据源的每日巡检任务
@@ -161,15 +159,15 @@ async def daily_ingest_sources(
             arxiv_until = None
             if since is not None:
                 if isinstance(since, date) and not isinstance(since, datetime):
-                    arxiv_since = datetime.combine(since, datetime.min.time()).replace(tzinfo=timezone.utc)
+                    arxiv_since = datetime.combine(since, datetime.min.time()).replace(tzinfo=UTC)
                 elif isinstance(since, datetime):
                     arxiv_since = since
             if until is not None:
                 if isinstance(until, date) and not isinstance(until, datetime):
-                    arxiv_until = datetime.combine(until, datetime.max.time()).replace(tzinfo=timezone.utc)
+                    arxiv_until = datetime.combine(until, datetime.max.time()).replace(tzinfo=UTC)
                 elif isinstance(until, datetime):
                     arxiv_until = until
-            
+
             arxiv_count = await ingest_arxiv(config, since=arxiv_since, until=arxiv_until)
             results["arxiv"] = {"count": arxiv_count, "status": "success"}
         except Exception as e:
@@ -192,8 +190,10 @@ async def daily_ingest_sources(
                     crossref_until = until.date()
                 else:
                     crossref_until = until
-            
-            crossref_count = await ingest_crossref(config, since=crossref_since, until=crossref_until)
+
+            crossref_count = await ingest_crossref(
+                config, since=crossref_since, until=crossref_until
+            )
             results["crossref"] = {"count": crossref_count, "status": "success"}
         except Exception as e:
             logger.error(f"Crossref 巡检失败: {e}", exc_info=True)
@@ -218,7 +218,6 @@ async def daily_ingest_sources(
             results["unpaywall"] = {"stats": {}, "status": "error", "error": str(e)}
 
     return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "results": results,
     }
-

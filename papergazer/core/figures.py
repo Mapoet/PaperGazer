@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, Optional
 
 from papergazer.config import Settings
 from papergazer.store.db import PaperItem, get_session, init_db
@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 def extract_figures_and_tables(
     config: Settings,
     *,
-    since_days: Optional[int] = None,
-    limit: Optional[int] = None,
-    sources: Optional[Iterable[str]] = None,
+    since_days: int | None = None,
+    limit: int | None = None,
+    sources: Iterable[str] | None = None,
     dry_run: bool = False,
     force: bool = False,
     only_missing: bool = True,
-    max_per_paper: Optional[int] = None,
+    max_per_paper: int | None = None,
 ) -> dict:
     """
     从 TEI 文件中抽取并保存图/表信息
@@ -58,7 +58,7 @@ def extract_figures_and_tables(
             query = query.filter(PaperItem.source.in_(list(sources)))
 
         if since_days is not None:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+            cutoff = datetime.now(UTC) - timedelta(days=since_days)
             query = query.filter(
                 PaperItem.ingested_at.isnot(None),
                 PaperItem.ingested_at >= cutoff,
@@ -127,4 +127,3 @@ def extract_figures_and_tables(
         )
 
     return stats
-

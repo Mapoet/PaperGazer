@@ -6,19 +6,19 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import quote_plus
 
 import httpx
 
-from papergazer.utils.http_client import sync_client
 from papergazer.store.db import (
     PaperItem,
     get_last_run,
     get_session,
     update_checkpoint,
 )
+from papergazer.utils.http_client import sync_client
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,9 @@ def _build_user_agent(mailto: str | None) -> str:
     return f"PaperGazer/1.0{suffix}"
 
 
-def fetch_crossref_metadata(doi: str, mailto: str | None = None, timeout: float = 30.0) -> Optional[Dict[str, Any]]:
+def fetch_crossref_metadata(
+    doi: str, mailto: str | None = None, timeout: float = 30.0
+) -> dict[str, Any] | None:
     """获取 Crossref 元数据"""
     if not doi:
         return None
@@ -57,7 +59,9 @@ def fetch_crossref_metadata(doi: str, mailto: str | None = None, timeout: float 
         raise MetadataFetchError(f"Crossref 请求失败 ({doi}): {exc}") from exc
 
 
-def fetch_openalex_metadata(doi: str, mailto: str | None = None, timeout: float = 30.0) -> Optional[Dict[str, Any]]:
+def fetch_openalex_metadata(
+    doi: str, mailto: str | None = None, timeout: float = 30.0
+) -> dict[str, Any] | None:
     """获取 OpenAlex 元数据"""
     if not doi:
         return None
@@ -79,7 +83,9 @@ def fetch_openalex_metadata(doi: str, mailto: str | None = None, timeout: float 
         raise MetadataFetchError(f"OpenAlex 请求失败 ({doi}): {exc}") from exc
 
 
-def fetch_unpaywall_metadata(doi: str, email: str | None = None, timeout: float = 20.0) -> Optional[Dict[str, Any]]:
+def fetch_unpaywall_metadata(
+    doi: str, email: str | None = None, timeout: float = 20.0
+) -> dict[str, Any] | None:
     """获取 Unpaywall 元数据"""
     if not doi:
         return None
@@ -107,14 +113,16 @@ def _select_papers(
     limit: int | None,
     *,
     force: bool,
-    cutoff: Optional[datetime],
+    cutoff: datetime | None,
 ) -> list[PaperItem]:
     column = getattr(PaperItem, column_name)
     query = session.query(PaperItem).filter(PaperItem.doi.isnot(None))
     if not force:
         query = query.filter((column.is_(None)) | (column == ""))
     if cutoff:
-        query = query.filter(PaperItem.ingested_at.isnot(None)).filter(PaperItem.ingested_at >= cutoff)
+        query = query.filter(PaperItem.ingested_at.isnot(None)).filter(
+            PaperItem.ingested_at >= cutoff
+        )
     query = query.order_by(PaperItem.ingested_at.desc())
     if limit:
         query = query.limit(limit)
@@ -235,7 +243,7 @@ def enrich_crossref_metadata(
 ) -> dict:
     session = get_session()
     source_key = "crossref_metadata"
-    now_ts = datetime.now(timezone.utc)
+    now_ts = datetime.now(UTC)
 
     if since_days is not None:
         cutoff = now_ts - timedelta(days=since_days)
@@ -309,7 +317,7 @@ def enrich_openalex_metadata(
 ) -> dict:
     session = get_session()
     source_key = "openalex_metadata"
-    now_ts = datetime.now(timezone.utc)
+    now_ts = datetime.now(UTC)
 
     if since_days is not None:
         cutoff = now_ts - timedelta(days=since_days)
@@ -384,7 +392,7 @@ def enrich_unpaywall_metadata(
 ) -> dict:
     session = get_session()
     source_key = "unpaywall_metadata"
-    now_ts = datetime.now(timezone.utc)
+    now_ts = datetime.now(UTC)
 
     if since_days is not None:
         cutoff = now_ts - timedelta(days=since_days)
@@ -449,7 +457,7 @@ def enrich_unpaywall_metadata(
     return {"success": success, "skipped": skipped, "failed": failed, "total": len(papers)}
 
 
-def _parse_date_parts(message: dict, keys: tuple[str, ...]) -> Optional[datetime]:
+def _parse_date_parts(message: dict, keys: tuple[str, ...]) -> datetime | None:
     for key in keys:
         data = message.get(key)
         if data and "date-parts" in data:
@@ -458,10 +466,7 @@ def _parse_date_parts(message: dict, keys: tuple[str, ...]) -> Optional[datetime
                 year = parts[0]
                 month = parts[1] if len(parts) > 1 else 1
                 day = parts[2] if len(parts) > 2 else 1
-                return datetime(year, month, day, tzinfo=timezone.utc)
+                return datetime(year, month, day, tzinfo=UTC)
             except (ValueError, IndexError, TypeError):
                 continue
     return None
-
-
-

@@ -17,18 +17,18 @@ from papergazer.utils.grobid import (
     process_fulltext_document,
     process_fulltext_document_sync,
 )
-from papergazer.utils.identity import build_cache as build_identity_cache, normalize_name
+from papergazer.utils.identity import build_cache as build_identity_cache
+from papergazer.utils.identity import normalize_name
 from papergazer.utils.logging import setup_logging
 from papergazer.utils.metadata import (
-    fetch_crossref_metadata,
-    fetch_openalex_metadata,
-    fetch_unpaywall_metadata,
     MetadataFetchError,
     enrich_crossref_metadata,
     enrich_openalex_metadata,
     enrich_unpaywall_metadata,
+    fetch_crossref_metadata,
+    fetch_openalex_metadata,
+    fetch_unpaywall_metadata,
 )
-from papergazer.utils.tei import extract_figures_from_tei, extract_tables_from_tei
 from papergazer.utils.query import (
     query_all_sources_by_days,
     query_arxiv_by_days,
@@ -36,9 +36,10 @@ from papergazer.utils.query import (
     query_europe_pmc_by_days,
     query_unpaywall_by_days,
     search_papers_by_author,
-    search_papers_by_venue,
     search_papers_by_keyword,
+    search_papers_by_venue,
 )
+from papergazer.utils.tei import extract_figures_from_tei, extract_tables_from_tei
 
 __all__ = [
     # 查询功能
@@ -82,4 +83,3 @@ __all__ = [
     "build_identity_cache",
     "normalize_name",
 ]
-

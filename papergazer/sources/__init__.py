@@ -3,9 +3,9 @@
 """
 
 from .arxiv import query_arxiv, query_arxiv_batch
-from .crossref import fetch_crossref_issn_increment, fetch_crossref_by_doi
-from .unpaywall import best_oa
+from .crossref import fetch_crossref_by_doi, fetch_crossref_issn_increment
 from .europe_pmc import doi_to_pmcid, fetch_fulltext_xml, search_articles_by_date
+from .unpaywall import best_oa
 
 __all__ = [
     "query_arxiv",
@@ -17,4 +17,3 @@ __all__ = [
     "fetch_fulltext_xml",
     "search_articles_by_date",
 ]
-

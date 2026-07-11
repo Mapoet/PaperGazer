@@ -2,12 +2,13 @@
 arXiv 数据源模块测试
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
 from datetime import datetime
+from unittest.mock import AsyncMock, Mock, patch
 
-from papergazer.sources.arxiv import query_arxiv, query_arxiv_batch
+import pytest
+
 from papergazer.models import ArxivEntry
+from papergazer.sources.arxiv import query_arxiv, query_arxiv_batch
 
 
 @pytest.mark.asyncio
@@ -94,4 +95,3 @@ async def test_arxiv_entry_to_metadata():
     assert len(metadata.authors) == 2
     assert metadata.doi == "10.1234/test"
     assert metadata.url_landing == "https://arxiv.org/abs/2501.00001"
-

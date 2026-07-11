@@ -12,24 +12,31 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
+
+from papergazer.analytics.citation import (  # type: ignore[import]
+    analyze_collaboration_network as analyze_collab_module,
+)
+from papergazer.analytics.citation import (
+    summarize_citation_network as summarize_citation_module,
+)
+from papergazer.analytics.concepts import (
+    analyze_concepts as analyze_concepts_module,  # type: ignore[import]
+)
+from papergazer.analytics.oa import monitor_oa as monitor_oa_module  # type: ignore[import]
+from papergazer.analytics.topics import (
+    analyze_topic_trends as analyze_topics_module,  # type: ignore[import]
+)
 from papergazer.config import load_config
 from papergazer.utils import (
     analyze_abstracts_by_days,
     analyze_authors_by_days,
     analyze_venues_by_days,
     get_papers_by_days,
+    setup_logging,
 )
-from papergazer.utils import setup_logging
-from papergazer.analytics.citation import (  # type: ignore[import]
-    analyze_collaboration_network as analyze_collab_module,
-    summarize_citation_network as summarize_citation_module,
-)
-from papergazer.analytics.concepts import analyze_concepts as analyze_concepts_module  # type: ignore[import]
-from papergazer.analytics.oa import monitor_oa as monitor_oa_module  # type: ignore[import]
-from papergazer.analytics.topics import analyze_topic_trends as analyze_topics_module  # type: ignore[import]
-from rich.console import Console
-from rich.table import Table
-from rich.text import Text
 
 console = Console()
 
@@ -47,16 +54,16 @@ def create_parser() -> argparse.ArgumentParser:
 示例用法:
   # 作者分析（最近7天）
   %(prog)s authors 7
-  
+
   # 同时执行作者与期刊分析（最近30天）
   %(prog)s authors venues 30 --top 20
-  
+
   # 概念热度与 OA 仪表盘（窗口 60 天）
   %(prog)s concepts oa 30 --window-days 60 --concept-persist
-  
+
   # 论文列表（最近7天，限制100条）
   %(prog)s list 7 --limit 100
-  
+
   # 指定配置文件
   %(prog)s authors 7 --config configs/config.prod.yaml
 """,
@@ -290,8 +297,8 @@ def main():
         if not config_path.exists():
             config_path = project_root / "configs" / "config.yaml"
         if not config_path.exists():
-            console.print(f"[bold red]配置文件不存在，请先创建配置文件[/bold red]")
-            console.print(f"参考: configs/config.yaml.example")
+            console.print("[bold red]配置文件不存在，请先创建配置文件[/bold red]")
+            console.print("参考: configs/config.yaml.example")
             return 1
 
     try:

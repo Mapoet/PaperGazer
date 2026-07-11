@@ -23,6 +23,7 @@ apscheduler>=3.10.4
 # Utilities
 python-dateutil>=2.8.2
 rapidfuzz>=3.5.2  # Optional: for fuzzy matching deduplication
+lxml>=4.9.0
 
 # Development
 pytest>=7.4.3
@@ -31,4 +32,3 @@ black>=23.11.0
 isort>=5.12.0
 mypy>=1.7.0
 ruff>=0.1.6
-

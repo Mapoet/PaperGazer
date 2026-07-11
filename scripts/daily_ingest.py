@@ -7,32 +7,31 @@
 import argparse
 import asyncio
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from rich.console import Console
+from rich.table import Table
+
+from papergazer.analytics.citation import build_citation_graph  # type: ignore[import]
 from papergazer.config import load_config
+from papergazer.core.embeddings import generate_embeddings_for_papers  # type: ignore[import]
+from papergazer.core.figures import extract_figures_and_tables  # type: ignore[import]
+from papergazer.core.fulltext import generate_tei_for_papers  # type: ignore[import]
 from papergazer.store.db import init_db
 from papergazer.utils import (
     daily_ingest_all,
     daily_ingest_sources,
     download_all_papers,
-    download_arxiv_papers,
-    download_oa_papers,
     enrich_crossref_metadata,
     enrich_openalex_metadata,
     enrich_unpaywall_metadata,
     setup_logging,
 )
-from papergazer.analytics.citation import build_citation_graph  # type: ignore[import]
-from papergazer.core.embeddings import generate_embeddings_for_papers  # type: ignore[import]
-from papergazer.core.figures import extract_figures_and_tables  # type: ignore[import]
-from papergazer.core.fulltext import generate_tei_for_papers  # type: ignore[import]
-from rich.console import Console
-from rich.table import Table
 
 console = Console()
 
@@ -211,19 +210,23 @@ async def main():
     )
 
     args = parser.parse_args()
-    
+
     # 检查参数冲突
     if args.days is not None and args.since is not None:
-        console.print("[bold yellow]警告: 同时指定了 --days 和 --since，将使用 --days 参数[/bold yellow]")
-    
+        console.print(
+            "[bold yellow]警告: 同时指定了 --days 和 --since，将使用 --days 参数[/bold yellow]"
+        )
+
     # 解析时间范围参数
     since = None
     until = None
-    
+
     if args.days is not None:
         # 如果指定了 --days，计算起始时间
-        since = datetime.now(timezone.utc) - timedelta(days=args.days)
-        console.print(f"[yellow]指定了 --days {args.days}，将忽略检查点过滤，查询从 {since.date()} 开始的论文[/yellow]")
+        since = datetime.now(UTC) - timedelta(days=args.days)
+        console.print(
+            f"[yellow]指定了 --days {args.days}，将忽略检查点过滤，查询从 {since.date()} 开始的论文[/yellow]"
+        )
     elif args.since is not None:
         # 解析 --since 参数
         try:
@@ -232,13 +235,13 @@ async def main():
             else:
                 since = datetime.combine(date.fromisoformat(args.since), datetime.min.time())
             if since.tzinfo is None:
-                since = since.replace(tzinfo=timezone.utc)
+                since = since.replace(tzinfo=UTC)
             console.print(f"[yellow]指定了起始时间: {since}，将忽略检查点过滤[/yellow]")
         except ValueError as e:
             console.print(f"[bold red]错误: 无法解析 --since 参数: {e}[/bold red]")
             console.print("格式应为: YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS")
             return
-    
+
     if args.until is not None:
         # 解析 --until 参数
         try:
@@ -247,7 +250,7 @@ async def main():
             else:
                 until = datetime.combine(date.fromisoformat(args.until), datetime.max.time())
             if until.tzinfo is None:
-                until = until.replace(tzinfo=timezone.utc)
+                until = until.replace(tzinfo=UTC)
             console.print(f"[yellow]指定了结束时间: {until}[/yellow]")
         except ValueError as e:
             console.print(f"[bold red]错误: 无法解析 --until 参数: {e}[/bold red]")
@@ -255,15 +258,21 @@ async def main():
             return
 
     # 如果指定了下载相关参数但没有 --download，自动启用下载
-    if not args.download and (args.download_days is not None or args.download_limit is not None 
-                              or args.download_arxiv_only or args.download_oa_only):
+    if not args.download and (
+        args.download_days is not None
+        or args.download_limit is not None
+        or args.download_arxiv_only
+        or args.download_oa_only
+    ):
         args.download = True
         console.print("[yellow]检测到下载相关参数，自动启用 --download[/yellow]")
 
     sources = args.sources
 
     if sources:
-        console.print(f"[bold green]开始执行每日巡检任务（数据源: {', '.join(sources)}）...[/bold green]")
+        console.print(
+            f"[bold green]开始执行每日巡检任务（数据源: {', '.join(sources)}）...[/bold green]"
+        )
     else:
         console.print("[bold green]开始执行每日巡检任务（所有数据源）...[/bold green]")
 
@@ -278,10 +287,12 @@ async def main():
         config_path = project_root / "configs" / "config.test.yaml"
         if not config_path.exists():
             config_path = project_root / "configs" / "config.yaml"
-    
+
     if not config_path.exists():
         console.print(f"[bold red]配置文件不存在: {config_path}[/bold red]")
-        console.print("[yellow]提示: 请复制 configs/config.yaml.example 为 configs/config.yaml 并修改相应配置[/yellow]")
+        console.print(
+            "[yellow]提示: 请复制 configs/config.yaml.example 为 configs/config.yaml 并修改相应配置[/yellow]"
+        )
         return
 
     try:
@@ -295,44 +306,52 @@ async def main():
 
         # 检查时间跨度，如果太长则分批处理
         batch_size_days = 3  # 每批处理 3 天
-        
+
         if since is not None and until is not None:
             time_span = (until - since).days
         elif since is not None:
-            time_span = (datetime.now(timezone.utc) - since).days
+            time_span = (datetime.now(UTC) - since).days
         else:
             time_span = 0
-        
+
         # 如果时间跨度大于 batch_size_days 天，进行分批处理
         if time_span > batch_size_days:
-            console.print(f"[yellow]时间跨度为 {time_span} 天，将分批处理（每批 {batch_size_days} 天）以避免数据量过大[/yellow]")
-            
+            console.print(
+                f"[yellow]时间跨度为 {time_span} 天，将分批处理（每批 {batch_size_days} 天）以避免数据量过大[/yellow]"
+            )
+
             # 初始化合并结果
             merged_results = {
                 "results": {},
                 "total_count": 0,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
-            
+
             # 计算批次
-            start_time = since if since else datetime.now(timezone.utc) - timedelta(days=time_span)
-            end_time = until if until else datetime.now(timezone.utc)
-            
+            start_time = since if since else datetime.now(UTC) - timedelta(days=time_span)
+            end_time = until if until else datetime.now(UTC)
+
             current_start = start_time
             batch_num = 0
-            
+
             while current_start < end_time:
                 batch_num += 1
                 current_end = min(current_start + timedelta(days=batch_size_days), end_time)
-                
-                console.print(f"\n[cyan]批次 {batch_num}: {current_start.date()} 至 {current_end.date()}[/cyan]")
-                
+
+                console.print(
+                    f"\n[cyan]批次 {batch_num}: {current_start.date()} 至 {current_end.date()}[/cyan]"
+                )
+
                 # 执行当前批次的巡检
                 if sources:
-                    batch_results = await daily_ingest_sources(config, sources, since=current_start, until=current_end)
+                    batch_results = await daily_ingest_sources(
+                        config, sources, since=current_start, until=current_end
+                    )
                 else:
-                    batch_results = await daily_ingest_all(config, since=current_start, until=current_end)
-                
+                    batch_results = await daily_ingest_all(
+                        config, since=current_start, until=current_end
+                    )
+
                 # 合并结果
                 for source, result in batch_results["results"].items():
                     if source not in merged_results["results"]:
@@ -342,28 +361,28 @@ async def main():
                             "stats": {},
                             "error": result.get("error"),
                         }
-                    
+
                     # 累加计数
                     if result.get("status") == "success":
-                        merged_results["results"][source]["count"] = (
-                            merged_results["results"][source].get("count", 0) + result.get("count", 0)
-                        )
-                        
+                        merged_results["results"][source]["count"] = merged_results["results"][
+                            source
+                        ].get("count", 0) + result.get("count", 0)
+
                         # 如果有 stats（如 unpaywall），合并统计信息
                         if "stats" in result:
                             if not merged_results["results"][source].get("stats"):
                                 merged_results["results"][source]["stats"] = {}
-                            
+
                             for key, value in result["stats"].items():
                                 merged_results["results"][source]["stats"][key] = (
                                     merged_results["results"][source]["stats"].get(key, 0) + value
                                 )
-                
+
                 merged_results["total_count"] += batch_results.get("total_count", 0)
-                
+
                 # 移动到下一批
                 current_start = current_end
-            
+
             console.print(f"\n[bold green]分批处理完成，共 {batch_num} 批[/bold green]")
             results = merged_results
         else:
@@ -598,4 +617,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

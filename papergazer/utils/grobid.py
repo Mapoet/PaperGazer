@@ -10,10 +10,9 @@ import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from xml.sax.saxutils import escape
 
 import httpx
-from xml.sax.saxutils import escape
 
 from papergazer.config import Settings
 from papergazer.utils.http_client import async_client
@@ -34,20 +33,20 @@ class GrobidResult:
     """GROBID 处理结果"""
 
     tei_xml: str
-    tei_path: Optional[Path]
+    tei_path: Path | None
     source: str  # grobid | text | xml
-    metadata: Optional[Dict[str, str]] = None
-    error: Optional[str] = None
+    metadata: dict[str, str] | None = None
+    error: str | None = None
 
 
 async def process_fulltext_document(
     config: Settings,
-    pdf_path: Optional[Path] = None,
+    pdf_path: Path | None = None,
     *,
-    text: Optional[str] = None,
-    xml: Optional[str] = None,
-    document_id: Optional[str] = None,
-    output_dir: Optional[Path] = None,
+    text: str | None = None,
+    xml: str | None = None,
+    document_id: str | None = None,
+    output_dir: Path | None = None,
     save: bool = True,
 ) -> GrobidResult:
     """
@@ -80,7 +79,7 @@ async def process_fulltext_document(
         tei_xml = _normalize_xml(xml or "", document_id=document_id)
         source = "xml"
 
-    tei_path: Optional[Path] = None
+    tei_path: Path | None = None
     if save:
         tei_path = _save_tei(
             tei_xml,
@@ -127,9 +126,7 @@ async def _process_pdf_with_grobid(config: Settings, pdf_path: Path) -> str:
             raise GrobidError(f"GROBID 请求失败: {exc}") from exc
 
     if response.status_code >= 400:
-        raise GrobidError(
-            f"GROBID 返回错误 {response.status_code}: {response.text.strip()}"
-        )
+        raise GrobidError(f"GROBID 返回错误 {response.status_code}: {response.text.strip()}")
 
     tei_xml = response.text
     if not tei_xml.strip():
@@ -138,7 +135,7 @@ async def _process_pdf_with_grobid(config: Settings, pdf_path: Path) -> str:
     return tei_xml
 
 
-def _build_tei_from_text(text: str, document_id: Optional[str] = None) -> str:
+def _build_tei_from_text(text: str, document_id: str | None = None) -> str:
     safe_title = escape(document_id or "Untitled")
     paragraphs = _split_paragraphs(text)
     paragraph_xml = "\n".join(f"        <p>{escape(p)}</p>" for p in paragraphs)
@@ -155,7 +152,7 @@ def _build_tei_from_text(text: str, document_id: Optional[str] = None) -> str:
         "  </teiHeader>\n"
         "  <text>\n"
         "    <body>\n"
-        "      <div type=\"plain-text\">\n"
+        '      <div type="plain-text">\n'
         f"{paragraph_xml}\n"
         "      </div>\n"
         "    </body>\n"
@@ -164,7 +161,7 @@ def _build_tei_from_text(text: str, document_id: Optional[str] = None) -> str:
     )
 
 
-def _normalize_xml(xml_content: str, document_id: Optional[str] = None) -> str:
+def _normalize_xml(xml_content: str, document_id: str | None = None) -> str:
     stripped = xml_content.strip()
     if not stripped:
         raise ValueError("提供的 XML 内容为空")
@@ -186,7 +183,7 @@ def _normalize_xml(xml_content: str, document_id: Optional[str] = None) -> str:
         "  </teiHeader>\n"
         "  <text>\n"
         "    <body>\n"
-        "      <div type=\"embedded-xml\">\n"
+        '      <div type="embedded-xml">\n'
         "        <ab><![CDATA[\n"
         f"{stripped}\n"
         "        ]]></ab>\n"
@@ -197,10 +194,10 @@ def _normalize_xml(xml_content: str, document_id: Optional[str] = None) -> str:
     )
 
 
-def _split_paragraphs(text: str) -> List[str]:
+def _split_paragraphs(text: str) -> list[str]:
     lines = [line.strip() for line in text.replace("\r\n", "\n").split("\n")]
-    paragraphs: List[str] = []
-    buffer: List[str] = []
+    paragraphs: list[str] = []
+    buffer: list[str] = []
 
     for line in lines:
         if not line:
@@ -220,9 +217,9 @@ def _save_tei(
     tei_xml: str,
     *,
     config: Settings,
-    pdf_path: Optional[Path],
-    output_dir: Optional[Path],
-    document_id: Optional[str],
+    pdf_path: Path | None,
+    output_dir: Path | None,
+    document_id: str | None,
     source: str,
 ) -> Path:
     base_dir = (
@@ -236,8 +233,7 @@ def _save_tei(
     base_dir.mkdir(parents=True, exist_ok=True)
 
     filename_base = _sanitize_filename(
-        document_id
-        or (pdf_path.stem if pdf_path else f"{source}_{uuid.uuid4().hex[:8]}")
+        document_id or (pdf_path.stem if pdf_path else f"{source}_{uuid.uuid4().hex[:8]}")
     )
     tei_path = base_dir / f"{filename_base}.tei.xml"
     tei_path.write_text(tei_xml, encoding="utf-8")
@@ -257,12 +253,12 @@ def _sanitize_filename(value: str) -> str:
 # 便捷同步封装
 def process_fulltext_document_sync(
     config: Settings,
-    pdf_path: Optional[Path] = None,
+    pdf_path: Path | None = None,
     *,
-    text: Optional[str] = None,
-    xml: Optional[str] = None,
-    document_id: Optional[str] = None,
-    output_dir: Optional[Path] = None,
+    text: str | None = None,
+    xml: str | None = None,
+    document_id: str | None = None,
+    output_dir: Path | None = None,
     save: bool = True,
 ) -> GrobidResult:
     """
@@ -280,5 +276,3 @@ def process_fulltext_document_sync(
             save=save,
         )
     )
-
-

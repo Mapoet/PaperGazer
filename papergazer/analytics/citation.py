@@ -7,12 +7,9 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import UTC, datetime, timedelta
 
 from papergazer.config import Settings
-from sqlalchemy import func
-
 from papergazer.store.db import (
     AffiliationIdentity,
     CitationEdge,
@@ -33,13 +30,13 @@ except ImportError:  # pragma: no cover - 当缺失 networkx 时提示
 def build_citation_graph(
     config: Settings,
     *,
-    since_days: Optional[int] = None,
-    sources: Optional[list[str]] = None,
-    limit: Optional[int] = None,
+    since_days: int | None = None,
+    sources: list[str] | None = None,
+    limit: int | None = None,
     dry_run: bool = False,
     force: bool = False,
     resolve_local: bool = False,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     根据 references_json 构建引用边
 
@@ -62,7 +59,7 @@ def build_citation_graph(
             query = query.filter(PaperItem.source.in_(sources))
 
         if since_days is not None:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+            cutoff = datetime.now(UTC) - timedelta(days=since_days)
             query = query.filter(get_effective_date_filter(cutoff))
 
         query = query.order_by(PaperItem.ingested_at.desc().nullslast())
@@ -146,9 +143,9 @@ def build_citation_graph(
 def summarize_citation_network(
     config: Settings,
     *,
-    since_days: Optional[int] = None,
+    since_days: int | None = None,
     max_nodes: int = 10,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """
     利用 networkx 计算引用网络指标。
 
@@ -164,7 +161,7 @@ def summarize_citation_network(
     init_db(config.store.db_path)
     session = get_session()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(days=since_days) if since_days else None
 
     stats = {
@@ -237,10 +234,10 @@ def summarize_citation_network(
 def analyze_collaboration_network(
     config: Settings,
     *,
-    since_days: Optional[int] = None,
+    since_days: int | None = None,
     min_weight: int = 1,
     top: int = 20,
-) -> Dict[str, object]:
+) -> dict[str, object]:
     """
     基于标准化机构信息的合作网络统计。
 
@@ -254,7 +251,7 @@ def analyze_collaboration_network(
     init_db(config.store.db_path)
     session = get_session()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(days=since_days) if since_days else None
 
     stats = {
@@ -284,14 +281,14 @@ def analyze_collaboration_network(
             .all()
         )
 
-        per_paper: Dict[int, List[Tuple[str, str]]] = defaultdict(list)
+        per_paper: dict[int, list[tuple[str, str]]] = defaultdict(list)
         for paper_id, name, ror_id, country in affiliations:
             label = ror_id or (name.strip() if name else None)
             if not label:
                 continue
             per_paper[paper_id].append((label, country or ""))
 
-        edge_counter: Dict[Tuple[str, str], int] = defaultdict(int)
+        edge_counter: dict[tuple[str, str], int] = defaultdict(int)
         for institutions in per_paper.values():
             node_map = {}
             for label, country in institutions:

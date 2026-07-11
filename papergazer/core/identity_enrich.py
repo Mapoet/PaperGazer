@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 
 from papergazer.config import Settings
 from papergazer.store.db import (
@@ -25,14 +24,14 @@ logger = logging.getLogger(__name__)
 def enrich_identities(
     config: Settings,
     *,
-    since_days: Optional[int] = None,
-    limit: Optional[int] = None,
-    sources: Optional[List[str]] = None,
+    since_days: int | None = None,
+    limit: int | None = None,
+    sources: list[str] | None = None,
     dry_run: bool = False,
     force: bool = False,
     skip_orcid: bool = False,
     skip_ror: bool = False,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     执行 ORCID / ROR 身份匹配
 
@@ -69,7 +68,7 @@ def enrich_identities(
             query = query.filter(PaperItem.source.in_(sources))
 
         if since_days is not None:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
+            cutoff = datetime.now(UTC) - timedelta(days=since_days)
             query = query.filter(
                 PaperItem.ingested_at.isnot(None),
                 PaperItem.ingested_at >= cutoff,
@@ -80,11 +79,10 @@ def enrich_identities(
         papers = query.all()
         if not force:
             # 过滤掉已有身份记录的论文
-            filtered: List[PaperItem] = []
+            filtered: list[PaperItem] = []
             for paper in papers:
                 has_author_identity = (
-                    session.query(AuthorIdentity).filter_by(paper_id=paper.id).first()
-                    is not None
+                    session.query(AuthorIdentity).filter_by(paper_id=paper.id).first() is not None
                 )
                 if not has_author_identity:
                     filtered.append(paper)
@@ -111,8 +109,8 @@ def enrich_identities(
                 stats["skipped"] += 1
                 continue
 
-            author_records: List[AuthorIdentity] = []
-            affiliation_records: List[AffiliationIdentity] = []
+            author_records: list[AuthorIdentity] = []
+            affiliation_records: list[AffiliationIdentity] = []
 
             for idx, author in enumerate(authors_data):
                 source_name = author.get("name") or ""
@@ -135,7 +133,9 @@ def enrich_identities(
                         normalized_name=normalized,
                         orcid=best_orcid.get("orcid") if best_orcid else None,
                         confidence=str(best_orcid.get("score", "")) if best_orcid else None,
-                        metadata_json=json.dumps(best_orcid, ensure_ascii=False) if best_orcid else None,
+                        metadata_json=json.dumps(best_orcid, ensure_ascii=False)
+                        if best_orcid
+                        else None,
                     )
                 )
                 stats["authors"] += 1
@@ -175,7 +175,9 @@ def enrich_identities(
                             if best_ror and best_ror.get("longitude")
                             else None,
                             confidence=str(best_ror.get("score", "")) if best_ror else None,
-                            metadata_json=json.dumps(best_ror, ensure_ascii=False) if best_ror else None,
+                            metadata_json=json.dumps(best_ror, ensure_ascii=False)
+                            if best_ror
+                            else None,
                         )
                     )
                     stats["affiliations"] += 1
@@ -208,4 +210,3 @@ def enrich_identities(
     )
 
     return stats
-

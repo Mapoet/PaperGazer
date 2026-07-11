@@ -5,22 +5,22 @@
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import and_, or_
 
 from papergazer.config import Settings
 from papergazer.core.fetch import fetch_by_identifier
-from papergazer.store.db import get_session, PaperItem
+from papergazer.store.db import PaperItem, get_session
 from papergazer.utils.db_filters import get_effective_date_filter
-from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
 
 
 async def download_arxiv_papers(
     config: Settings,
-    days: Optional[int] = None,
-    limit: Optional[int] = None,
+    days: int | None = None,
+    limit: int | None = None,
 ) -> dict:
     """
     下载 arXiv 论文
@@ -45,7 +45,7 @@ async def download_arxiv_papers(
 
         # 如果指定了天数，只下载最近 N 天的
         if days:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
             query = query.filter(get_effective_date_filter(cutoff_date))
 
         # 按更新日期排序
@@ -69,10 +69,14 @@ async def download_arxiv_papers(
 
                 if result["success"]:
                     success_count += 1
-                    logger.info(f"✅ 下载成功: {item.identifier} -> {result.get('pdf_path', 'N/A')}")
+                    logger.info(
+                        f"✅ 下载成功: {item.identifier} -> {result.get('pdf_path', 'N/A')}"
+                    )
                 else:
                     error_count += 1
-                    logger.warning(f"❌ 下载失败: {item.identifier} - {result.get('error', '未知错误')}")
+                    logger.warning(
+                        f"❌ 下载失败: {item.identifier} - {result.get('error', '未知错误')}"
+                    )
 
                 # 添加小延迟，避免请求过快
                 await asyncio.sleep(0.5)
@@ -93,9 +97,9 @@ async def download_arxiv_papers(
 
 async def download_oa_papers(
     config: Settings,
-    days: Optional[int] = None,
-    limit: Optional[int] = None,
-    sources: Optional[List[str]] = None,
+    days: int | None = None,
+    limit: int | None = None,
+    sources: list[str] | None = None,
 ) -> dict:
     """
     下载开放获取论文（通过 Unpaywall 或其他 OA 来源）
@@ -116,7 +120,7 @@ async def download_oa_papers(
         # 查询需要下载的 OA 论文
         query = session.query(PaperItem).filter(
             and_(
-                PaperItem.is_oa == True,
+                PaperItem.is_oa,
                 PaperItem.doi.isnot(None),
                 PaperItem.doi != "",
                 or_(PaperItem.pdf_path.is_(None), PaperItem.pdf_path == ""),
@@ -129,7 +133,7 @@ async def download_oa_papers(
 
         # 如果指定了天数
         if days:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
             query = query.filter(get_effective_date_filter(cutoff_date))
 
         # 按更新日期排序
@@ -179,8 +183,8 @@ async def download_oa_papers(
 
 async def download_all_papers(
     config: Settings,
-    days: Optional[int] = None,
-    limit: Optional[int] = None,
+    days: int | None = None,
+    limit: int | None = None,
     include_arxiv: bool = True,
     include_oa: bool = True,
 ) -> dict:
@@ -227,4 +231,3 @@ async def download_all_papers(
         "total_success": total_success,
         "total_error": total_error,
     }
-

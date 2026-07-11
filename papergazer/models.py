@@ -3,7 +3,6 @@
 """
 
 from datetime import date, datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +11,7 @@ class Author(BaseModel):
     """作者模型"""
 
     name: str
-    affiliation: Optional[str] = None
+    affiliation: str | None = None
 
 
 class PaperMetadata(BaseModel):
@@ -21,15 +20,15 @@ class PaperMetadata(BaseModel):
     source: str = Field(..., description="数据源：arxiv 或 crossref")
     identifier: str = Field(..., description="arxiv_id 或 doi")
     title: str
-    authors: List[Author] = Field(default_factory=list)
-    venue: Optional[str] = Field(None, description="期刊/会议名称")
-    issn_print: Optional[str] = None
-    issn_online: Optional[str] = None
-    published_date: Optional[date] = None
-    updated_date: Optional[datetime] = None
-    doi: Optional[str] = None
-    url_landing: Optional[str] = None
-    abstract: Optional[str] = None
+    authors: list[Author] = Field(default_factory=list)
+    venue: str | None = Field(None, description="期刊/会议名称")
+    issn_print: str | None = None
+    issn_online: str | None = None
+    published_date: date | None = None
+    updated_date: datetime | None = None
+    doi: str | None = None
+    url_landing: str | None = None
+    abstract: str | None = None
 
 
 class ArxivEntry(BaseModel):
@@ -39,11 +38,11 @@ class ArxivEntry(BaseModel):
     title: str
     summary: str
     updated: datetime
-    published: Optional[datetime] = None
-    authors: List[str] = Field(default_factory=list)
-    categories: List[str] = Field(default_factory=list)
-    pdf_url: Optional[str] = None
-    doi: Optional[str] = None
+    published: datetime | None = None
+    authors: list[str] = Field(default_factory=list)
+    categories: list[str] = Field(default_factory=list)
+    pdf_url: str | None = None
+    doi: str | None = None
 
     def to_metadata(self) -> PaperMetadata:
         """转换为标准化元数据"""
@@ -52,7 +51,7 @@ class ArxivEntry(BaseModel):
         if self.categories:
             primary_category = self.categories[0]
             venue = f"arXiv [{primary_category}]"
-        
+
         return PaperMetadata(
             source="arxiv",
             identifier=self.arxiv_id,
@@ -71,15 +70,15 @@ class CrossrefWork(BaseModel):
     """Crossref API 返回的工作项"""
 
     doi: str
-    title: List[str] = Field(default_factory=list)
-    author: List[dict] = Field(default_factory=list)
-    container_title: List[str] = Field(default_factory=list)
-    issn: List[str] = Field(default_factory=list)
-    issued: Optional[dict] = None
-    published_online: Optional[dict] = None
-    published_print: Optional[dict] = None
-    link: List[dict] = Field(default_factory=list)
-    abstract: Optional[str] = None
+    title: list[str] = Field(default_factory=list)
+    author: list[dict] = Field(default_factory=list)
+    container_title: list[str] = Field(default_factory=list)
+    issn: list[str] = Field(default_factory=list)
+    issued: dict | None = None
+    published_online: dict | None = None
+    published_print: dict | None = None
+    link: list[dict] = Field(default_factory=list)
+    abstract: str | None = None
 
     def to_metadata(self) -> PaperMetadata:
         """转换为标准化元数据"""
@@ -126,7 +125,10 @@ class CrossrefWork(BaseModel):
         # 提取 landing page URL
         url_landing = None
         for link in self.link:
-            if link.get("intended-application") == "text-mining" or link.get("content-type") == "text/html":
+            if (
+                link.get("intended-application") == "text-mining"
+                or link.get("content-type") == "text/html"
+            ):
                 url_landing = link.get("URL")
                 break
 
@@ -149,17 +151,17 @@ class UnpaywallResponse(BaseModel):
     """Unpaywall API 响应"""
 
     is_oa: bool
-    best_oa_location: Optional[dict] = None
+    best_oa_location: dict | None = None
 
     @property
-    def pdf_url(self) -> Optional[str]:
+    def pdf_url(self) -> str | None:
         """获取 PDF URL"""
         if self.best_oa_location:
             return self.best_oa_location.get("url_for_pdf") or self.best_oa_location.get("url")
         return None
 
     @property
-    def landing_url(self) -> Optional[str]:
+    def landing_url(self) -> str | None:
         """获取 landing page URL"""
         if self.best_oa_location:
             return self.best_oa_location.get("url")
@@ -169,7 +171,6 @@ class UnpaywallResponse(BaseModel):
 class EuropePMCResult(BaseModel):
     """Europe PMC 搜索结果"""
 
-    pmcid: Optional[str] = None
-    title: Optional[str] = None
-    doi: Optional[str] = None
-
+    pmcid: str | None = None
+    title: str | None = None
+    doi: str | None = None

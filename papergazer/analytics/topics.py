@@ -10,8 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict, deque
-from datetime import date, datetime, timedelta, timezone
-from typing import Deque, Dict, List, Optional, Tuple
+from datetime import UTC, date, datetime, timedelta
 
 from papergazer.config import Settings
 from papergazer.store.db import PaperItem, get_session, init_db
@@ -19,7 +18,7 @@ from papergazer.utils.db_filters import get_effective_date_filter
 
 logger = logging.getLogger(__name__)
 
-PeriodKey = Tuple[int, Optional[int]]
+PeriodKey = tuple[int, int | None]
 
 
 def _period_from_date(value: date | None, granularity: str) -> PeriodKey:
@@ -37,8 +36,8 @@ def analyze_topic_trends(
     since_years: int = 3,
     top: int = 15,
     min_support: int = 3,
-    sources: Optional[List[str]] = None,
-) -> Dict[str, object]:
+    sources: list[str] | None = None,
+) -> dict[str, object]:
     """
     统计主题热度趋势。
 
@@ -57,10 +56,10 @@ def analyze_topic_trends(
     init_db(config.store.db_path)
     session = get_session()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(days=since_years * 365)
 
-    stats: Dict[str, object] = {
+    stats: dict[str, object] = {
         "granularity": granularity,
         "since": cutoff.date(),
         "top": top,
@@ -78,8 +77,8 @@ def analyze_topic_trends(
         papers = query.all()
         stats["papers"] = len(papers)
 
-        timeline: Dict[str, Dict[PeriodKey, int]] = defaultdict(lambda: defaultdict(int))
-        concept_meta: Dict[str, Dict[str, object]] = {}
+        timeline: dict[str, dict[PeriodKey, int]] = defaultdict(lambda: defaultdict(int))
+        concept_meta: dict[str, dict[str, object]] = {}
 
         for paper in papers:
             try:
@@ -125,7 +124,7 @@ def analyze_topic_trends(
             prev_count = period_counts[prev]
             growth = (latest_count - prev_count) / max(prev_count, 1)
 
-            history: Deque[Tuple[str, int]] = deque()
+            history: deque[tuple[str, int]] = deque()
             for p in ordered_periods:
                 label = f"{p[0]}Q{p[1]}" if granularity == "quarter" and p[1] else str(p[0])
                 history.append((label, period_counts[p]))

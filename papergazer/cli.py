@@ -3,14 +3,13 @@
 """
 
 import asyncio
-from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from papergazer.config import load_config, Settings
+from papergazer.config import load_config
 from papergazer.core import fetch_by_identifier, run_daily_check
 from papergazer.store.db import init_db
 from papergazer.utils import setup_logging
@@ -157,4 +156,3 @@ def export(
 
 if __name__ == "__main__":
     app()
-

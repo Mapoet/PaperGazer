@@ -3,8 +3,8 @@
 """
 
 import asyncio
-from typing import List, TypeVar, Callable, Awaitable
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import TypeVar
 
 T = TypeVar("T")
 
@@ -52,10 +52,10 @@ async def batch_process(
 
 
 async def rate_limited_gather(
-    tasks: List[Awaitable[T]],
+    tasks: list[Awaitable[T]],
     max_concurrent: int = 5,
     delay: float = 0.0,
-) -> List[T]:
+) -> list[T]:
     """
     限速并发执行任务
 
@@ -78,4 +78,3 @@ async def rate_limited_gather(
 
     results = await asyncio.gather(*[execute_with_semaphore(task) for task in tasks])
     return results
-

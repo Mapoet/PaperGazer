@@ -5,9 +5,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from papergazer.config import Settings
 from papergazer.store.db import PaperItem, get_session, init_db
@@ -19,11 +18,11 @@ logger = logging.getLogger(__name__)
 async def generate_tei_for_papers(
     config: Settings,
     *,
-    limit: Optional[int] = None,
-    since_days: Optional[int] = None,
+    limit: int | None = None,
+    since_days: int | None = None,
     force: bool = False,
     dry_run: bool = False,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
 ) -> dict:
     """
     为数据库中的论文生成 TEI 文件。
@@ -55,8 +54,10 @@ async def generate_tei_for_papers(
         if not force:
             query = query.filter((PaperItem.tei_path.is_(None)) | (PaperItem.tei_path == ""))
         if since_days is not None:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=since_days)
-            query = query.filter(PaperItem.ingested_at.isnot(None)).filter(PaperItem.ingested_at >= cutoff)
+            cutoff = datetime.now(UTC) - timedelta(days=since_days)
+            query = query.filter(PaperItem.ingested_at.isnot(None)).filter(
+                PaperItem.ingested_at >= cutoff
+            )
         query = query.order_by(PaperItem.ingested_at.desc().nullslast())
         if limit:
             query = query.limit(limit)
@@ -128,4 +129,3 @@ async def generate_tei_for_papers(
         dry_run,
     )
     return stats
-

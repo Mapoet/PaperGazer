@@ -5,7 +5,6 @@
 import hashlib
 import re
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 from papergazer.models import PaperMetadata
 
@@ -22,7 +21,11 @@ def sanitize_identifier(identifier: str) -> str:
     """
     # 去除协议前缀
     identifier = identifier.replace("https://", "").replace("http://", "")
-    identifier = identifier.replace("doi.org/", "").replace("arxiv.org/abs/", "").replace("arxiv.org/pdf/", "")
+    identifier = (
+        identifier.replace("doi.org/", "")
+        .replace("arxiv.org/abs/", "")
+        .replace("arxiv.org/pdf/", "")
+    )
 
     # 去除版本号（arXiv）
     identifier = re.sub(r"v\d+$", "", identifier)
@@ -37,7 +40,7 @@ def sanitize_identifier(identifier: str) -> str:
 
 
 def get_paper_path(
-    papers_dir: Union[str, Path],
+    papers_dir: str | Path,
     metadata: PaperMetadata,
     filename: str = "paper.pdf",
 ) -> Path:
@@ -61,7 +64,7 @@ def get_paper_path(
     return papers_dir / str(year) / sanitized_id / filename
 
 
-def compute_file_hash(file_path: Union[str, Path]) -> str:
+def compute_file_hash(file_path: str | Path) -> str:
     """
     计算文件 SHA256 哈希
 
@@ -79,11 +82,11 @@ def compute_file_hash(file_path: Union[str, Path]) -> str:
 
 
 def save_pdf(
-    papers_dir: Union[str, Path],
+    papers_dir: str | Path,
     metadata: PaperMetadata,
     pdf_content: bytes,
     overwrite: bool = False,
-) -> Tuple[Path, str]:
+) -> tuple[Path, str]:
     """
     保存 PDF 文件
 
@@ -117,11 +120,11 @@ def save_pdf(
 
 
 def save_xml(
-    papers_dir: Union[str, Path],
+    papers_dir: str | Path,
     metadata: PaperMetadata,
     xml_content: bytes,
     overwrite: bool = False,
-) -> Tuple[Path, str]:
+) -> tuple[Path, str]:
     """
     保存 XML 文件
 
@@ -154,7 +157,9 @@ def save_xml(
     return xml_path, file_hash
 
 
-def file_exists(papers_dir: Union[str, Path], metadata: PaperMetadata, filename: str = "paper.pdf") -> bool:
+def file_exists(
+    papers_dir: str | Path, metadata: PaperMetadata, filename: str = "paper.pdf"
+) -> bool:
     """
     检查文件是否存在
 
@@ -168,4 +173,3 @@ def file_exists(papers_dir: Union[str, Path], metadata: PaperMetadata, filename:
     """
     file_path = get_paper_path(papers_dir, metadata, filename)
     return file_path.exists()
-

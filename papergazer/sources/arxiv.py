@@ -4,8 +4,8 @@ arXiv API 封装：查询与解析 Atom feed
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import AsyncIterator, List
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import feedparser
 import httpx
@@ -26,7 +26,7 @@ ARXIV_API_URL = "https://export.arxiv.org/api/query"
     retry=retry_if_exception_type((httpx.ReadTimeout, httpx.ConnectTimeout)),
 )
 async def query_arxiv(
-    categories: List[str],
+    categories: list[str],
     max_results: int = 100,
     delay_seconds: float = 3.0,
     start: int = 0,
@@ -68,16 +68,18 @@ async def query_arxiv(
         read_timeout = base_read_timeout * 1.5  # 450 秒（7.5分钟）
     else:
         read_timeout = base_read_timeout
-    
+
     timeout = httpx.Timeout(
         connect=30.0,  # 连接超时 30 秒（增加连接超时）
-        read=read_timeout,    # 读取超时（动态调整）
-        write=10.0,    # 写入超时 10 秒
-        pool=30.0,     # 连接池超时 30 秒
+        read=read_timeout,  # 读取超时（动态调整）
+        write=10.0,  # 写入超时 10 秒
+        pool=30.0,  # 连接池超时 30 秒
     )
-    
-    logger.debug(f"arXiv API 请求参数: max_results={max_results}, start={start}, 超时设置: read={read_timeout}s")
-    
+
+    logger.debug(
+        f"arXiv API 请求参数: max_results={max_results}, start={start}, 超时设置: read={read_timeout}s"
+    )
+
     try:
         async with async_client(timeout=timeout, follow_redirects=True) as client:
             # 使用流式读取，避免一次性加载整个响应
@@ -95,7 +97,7 @@ async def query_arxiv(
             f"建议减少 max_results 或检查网络连接。"
         )
         raise
-    
+
     # 调试信息
     if len(feed.entries) == 0:
         logger.warning(f"arXiv API 返回空结果，响应长度: {len(response_text)}")
@@ -120,13 +122,13 @@ async def query_arxiv(
 
         # 解析日期（arXiv API 返回的是 UTC 时间）
         if hasattr(entry, "updated_parsed") and entry.updated_parsed:
-            updated = datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
+            updated = datetime(*entry.updated_parsed[:6], tzinfo=UTC)
         else:
-            updated = datetime.now(timezone.utc)
-        
+            updated = datetime.now(UTC)
+
         published = None
         if hasattr(entry, "published_parsed") and entry.published_parsed:
-            published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+            published = datetime(*entry.published_parsed[:6], tzinfo=UTC)
 
         # 提取 DOI（如果存在）
         doi = None
@@ -151,10 +153,10 @@ async def query_arxiv(
 
 
 async def query_arxiv_batch(
-    categories: List[str],
+    categories: list[str],
     max_results: int = 100,
     delay_seconds: float = 3.0,
-) -> List[ArxivEntry]:
+) -> list[ArxivEntry]:
     """
     批量查询 arXiv（处理分页）
 
@@ -166,7 +168,7 @@ async def query_arxiv_batch(
     Returns:
         ArxivEntry 列表
     """
-    results: List[ArxivEntry] = []
+    results: list[ArxivEntry] = []
     start = 0
     batch_size = 2000  # arXiv 限制
 
@@ -183,4 +185,3 @@ async def query_arxiv_batch(
         start += batch_size
 
     return results[:max_results]
-

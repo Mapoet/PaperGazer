@@ -2,9 +2,10 @@
 核心逻辑模块测试 - ingest
 """
 
+from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
-from datetime import datetime, timedelta
 
 from papergazer.core.ingest import ingest_arxiv, ingest_crossref, run_daily_check
 from papergazer.models import ArxivEntry, CrossrefWork
@@ -31,13 +32,13 @@ async def test_ingest_arxiv_empty(settings, temp_db_path):
 @pytest.mark.asyncio
 async def test_ingest_arxiv_with_data(settings, temp_db_path):
     """测试 arXiv 巡检（有数据）"""
-    from papergazer.store.db import init_db, get_session, PaperItem
-    from datetime import timezone
+
+    from papergazer.store.db import PaperItem, get_session, init_db
 
     init_db(temp_db_path)
 
     # 创建测试数据（使用未来的时间，确保不会被过滤）
-    future_time = datetime.now(timezone.utc) + timedelta(days=1)
+    future_time = datetime.now(UTC) + timedelta(days=1)
     test_entry = ArxivEntry(
         arxiv_id="2501.00001",
         title="Test Paper",
@@ -88,7 +89,7 @@ async def test_ingest_crossref_empty(settings, temp_db_path):
 @pytest.mark.asyncio
 async def test_ingest_crossref_with_data(settings, temp_db_path):
     """测试 Crossref 巡检（有数据）"""
-    from papergazer.store.db import init_db, get_session, PaperItem
+    from papergazer.store.db import PaperItem, get_session, init_db
 
     init_db(temp_db_path)
 
@@ -127,9 +128,10 @@ async def test_run_daily_check(settings, temp_db_path):
 
     init_db(temp_db_path)
 
-    with patch("papergazer.core.ingest.ingest_arxiv") as mock_arxiv, patch(
-        "papergazer.core.ingest.ingest_crossref"
-    ) as mock_crossref:
+    with (
+        patch("papergazer.core.ingest.ingest_arxiv") as mock_arxiv,
+        patch("papergazer.core.ingest.ingest_crossref") as mock_crossref,
+    ):
         mock_arxiv.return_value = 5
         mock_crossref.return_value = 3
 
@@ -138,4 +140,3 @@ async def test_run_daily_check(settings, temp_db_path):
         assert results["arxiv"] == 5
         assert results["crossref"] == 3
         assert len(results) == 2
-

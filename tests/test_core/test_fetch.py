@@ -2,11 +2,11 @@
 核心逻辑模块测试 - fetch
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
-from pathlib import Path
+from unittest.mock import patch
 
-from papergazer.core.fetch import normalize_identifier, fetch_arxiv_pdf, fetch_by_identifier
+import pytest
+
+from papergazer.core.fetch import fetch_arxiv_pdf, fetch_by_identifier, normalize_identifier
 
 
 def test_normalize_identifier_arxiv():
@@ -53,9 +53,10 @@ async def test_fetch_by_identifier_arxiv(settings, temp_db_path, temp_papers_dir
 
     init_db(temp_db_path)
 
-    with patch("papergazer.core.fetch.fetch_arxiv_pdf") as mock_fetch_pdf, patch(
-        "papergazer.core.fetch.download_file"
-    ) as mock_download:
+    with (
+        patch("papergazer.core.fetch.fetch_arxiv_pdf") as mock_fetch_pdf,
+        patch("papergazer.core.fetch.download_file"),
+    ):
         mock_pdf_path = temp_papers_dir / "test.pdf"
         mock_pdf_path.parent.mkdir(parents=True, exist_ok=True)
         mock_pdf_path.write_bytes(b"PDF content")
@@ -74,14 +75,16 @@ async def test_fetch_by_identifier_arxiv(settings, temp_db_path, temp_papers_dir
 @pytest.mark.asyncio
 async def test_fetch_by_identifier_doi_unpaywall(settings, temp_db_path, temp_papers_dir):
     """测试按 DOI 抓取（Unpaywall）"""
-    from papergazer.store.db import init_db
     from papergazer.models import UnpaywallResponse
+    from papergazer.store.db import init_db
 
     init_db(temp_db_path)
 
-    with patch("papergazer.core.fetch.best_oa") as mock_oa, patch(
-        "papergazer.core.fetch.download_file"
-    ) as mock_download, patch("papergazer.core.fetch.crossref.fetch_crossref_by_doi") as mock_crossref:
+    with (
+        patch("papergazer.core.fetch.best_oa") as mock_oa,
+        patch("papergazer.core.fetch.download_file") as mock_download,
+        patch("papergazer.core.fetch.crossref.fetch_crossref_by_doi") as mock_crossref,
+    ):
         # Mock Unpaywall 返回 OA
         mock_oa.return_value = UnpaywallResponse(
             is_oa=True, best_oa_location={"url_for_pdf": "https://example.com/paper.pdf"}
@@ -113,10 +116,12 @@ async def test_fetch_by_identifier_fallback(settings, temp_db_path):
 
     init_db(temp_db_path)
 
-    with patch("papergazer.core.fetch.best_oa") as mock_oa, patch(
-        "papergazer.core.fetch.doi_to_pmcid"
-    ) as mock_pmcid, patch("papergazer.core.fetch.crossref.fetch_crossref_by_doi") as mock_crossref:
-        from papergazer.models import UnpaywallResponse, CrossrefWork
+    with (
+        patch("papergazer.core.fetch.best_oa") as mock_oa,
+        patch("papergazer.core.fetch.doi_to_pmcid") as mock_pmcid,
+        patch("papergazer.core.fetch.crossref.fetch_crossref_by_doi") as mock_crossref,
+    ):
+        from papergazer.models import CrossrefWork, UnpaywallResponse
 
         # 所有 OA 源都失败
         mock_oa.return_value = UnpaywallResponse(is_oa=False)
@@ -134,4 +139,3 @@ async def test_fetch_by_identifier_fallback(settings, temp_db_path):
         assert result["success"] is True
         assert result["source"] == "crossref"
         assert result["abstract_only"] is True
-

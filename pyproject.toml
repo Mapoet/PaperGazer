@@ -32,10 +32,18 @@ dependencies = [
     "apscheduler>=3.10.4",
     "python-dateutil>=2.8.2",
     "rapidfuzz>=3.5.2",
+    "lxml>=4.9.0",
 ]
 
 [project.optional-dependencies]
+analytics = [
+    "networkx>=3.0",
+]
+embeddings = [
+    "sentence-transformers>=2.2",
+]
 dev = [
+    "build>=1.2.0",
     "pytest>=7.4.3",
     "pytest-asyncio>=0.21.1",
     "black>=23.11.0",
@@ -47,8 +55,8 @@ dev = [
 [project.scripts]
 papergazer = "papergazer.cli:app"
 
-[tool.setuptools]
-packages = ["papergazer", "papergazer.sources", "papergazer.store", "papergazer.core"]
+[tool.setuptools.packages.find]
+include = ["papergazer*"]
 
 [tool.black]
 line-length = 100
@@ -72,6 +80,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
+markers = [
+    "network: tests that require live external network services",
+]
 
 [tool.ruff]
 line-length = 100
@@ -81,3 +92,6 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]  # Line too long (handled by black)
 
+[tool.ruff.lint.per-file-ignores]
+# Compatibility scripts add the repository root before importing papergazer.
+"scripts/*.py" = ["E402"]

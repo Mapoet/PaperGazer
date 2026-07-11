@@ -2,13 +2,18 @@
 数据库模块测试
 """
 
-import pytest
-from datetime import datetime, date
-from pathlib import Path
+from datetime import date, datetime
 
-from papergazer.store.db import init_db, get_session, upsert_paper, get_last_checkpoint, update_checkpoint
-from papergazer.models import PaperMetadata, Author
-from papergazer.store.db import PaperItem, RunRecord
+import pytest
+
+from papergazer.models import Author, PaperMetadata
+from papergazer.store.db import (
+    get_last_checkpoint,
+    get_session,
+    init_db,
+    update_checkpoint,
+    upsert_paper,
+)
 
 
 @pytest.fixture
@@ -147,4 +152,3 @@ def test_paper_item_to_metadata(db_session):
     assert converted.identifier == "2501.00001"
     assert converted.title == "Test Paper"
     assert len(converted.authors) == 2
-

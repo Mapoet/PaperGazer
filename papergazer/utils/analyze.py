@@ -6,24 +6,22 @@
 import json
 import logging
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
-from papergazer.store.db import get_session, PaperItem, init_db
+from papergazer.store.db import PaperItem, get_session, init_db
 from papergazer.utils.db_filters import get_effective_date_filter
-from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
 
 
-def _ensure_db_initialized(db_path: Optional[Union[str, Path]] = None) -> None:
+def _ensure_db_initialized(db_path: str | Path | None = None) -> None:
     """
     确保数据库已初始化
-    
+
     Args:
         db_path: 数据库路径，如果为 None 则尝试从默认配置加载
-    
+
     Raises:
         RuntimeError: 如果数据库未初始化且无法自动初始化
     """
@@ -33,36 +31,35 @@ def _ensure_db_initialized(db_path: Optional[Union[str, Path]] = None) -> None:
         return  # 数据库已初始化
     except RuntimeError:
         pass  # 数据库未初始化，继续下面的逻辑
-    
+
     if db_path:
         init_db(db_path)
         return
-    
+
     # 尝试从默认配置文件加载
     try:
         from papergazer.config import load_config
+
         config_path = Path("configs/config.yaml")
         if not config_path.exists():
             config_path = Path("configs/config.test.yaml")
-        
+
         if config_path.exists():
             config = load_config(config_path)
             init_db(config.store.db_path)
             return
     except Exception as e:
         logger.debug(f"无法自动初始化数据库: {e}")
-    
-    raise RuntimeError(
-        "数据库未初始化。请先调用 init_db(db_path) 或确保配置文件存在。"
-    )
+
+    raise RuntimeError("数据库未初始化。请先调用 init_db(db_path) 或确保配置文件存在。")
 
 
 def analyze_authors_by_days(
     days: int,
-    sources: Optional[List[str]] = None,
+    sources: list[str] | None = None,
     top_n: int = 10,
-    db_path: Optional[Union[str, Path]] = None,
-) -> Dict:
+    db_path: str | Path | None = None,
+) -> dict:
     """
     分析指定天数内的作者信息
 
@@ -78,7 +75,7 @@ def analyze_authors_by_days(
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
@@ -141,10 +138,10 @@ def analyze_authors_by_days(
 
 def analyze_abstracts_by_days(
     days: int,
-    sources: Optional[List[str]] = None,
+    sources: list[str] | None = None,
     min_length: int = 100,
-    db_path: Optional[Union[str, Path]] = None,
-) -> Dict:
+    db_path: str | Path | None = None,
+) -> dict:
     """
     分析指定天数内的摘要信息
 
@@ -160,7 +157,7 @@ def analyze_abstracts_by_days(
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
@@ -209,9 +206,9 @@ def analyze_abstracts_by_days(
 
 def analyze_oa_status_by_days(
     days: int,
-    sources: Optional[List[str]] = None,
-    db_path: Optional[Union[str, Path]] = None,
-) -> Dict:
+    sources: list[str] | None = None,
+    db_path: str | Path | None = None,
+) -> dict:
     """
     分析指定天数内的 OA 状态
 
@@ -226,7 +223,7 @@ def analyze_oa_status_by_days(
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
@@ -239,9 +236,7 @@ def analyze_oa_status_by_days(
         non_oa_count = 0
         unknown_count = 0
         oa_sources = Counter()
-        source_stats = defaultdict(
-            lambda: {"oa": 0, "non_oa": 0, "unknown": 0, "total": 0}
-        )
+        source_stats = defaultdict(lambda: {"oa": 0, "non_oa": 0, "unknown": 0, "total": 0})
 
         for item in items:
             source_stats[item.source]["total"] += 1
@@ -275,10 +270,10 @@ def analyze_oa_status_by_days(
 
 def analyze_venues_by_days(
     days: int,
-    sources: Optional[List[str]] = None,
+    sources: list[str] | None = None,
     top_n: int = 10,
-    db_path: Optional[Union[str, Path]] = None,
-) -> Dict:
+    db_path: str | Path | None = None,
+) -> dict:
     """
     分析指定天数内的期刊/会议信息
 
@@ -294,7 +289,7 @@ def analyze_venues_by_days(
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
@@ -333,11 +328,11 @@ def analyze_venues_by_days(
 
 def get_papers_by_days(
     days: int,
-    sources: Optional[List[str]] = None,
-    limit: Optional[int] = None,
+    sources: list[str] | None = None,
+    limit: int | None = None,
     order_by: str = "updated_date",
-    db_path: Optional[Union[str, Path]] = None,
-) -> List[Dict]:
+    db_path: str | Path | None = None,
+) -> list[dict]:
     """
     获取指定天数内的论文列表
 
@@ -354,7 +349,7 @@ def get_papers_by_days(
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         query = session.query(PaperItem).filter(get_effective_date_filter(cutoff_date))
 
@@ -402,4 +397,3 @@ def get_papers_by_days(
         return papers
     finally:
         session.close()
-

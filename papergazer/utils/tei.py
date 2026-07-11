@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from lxml import etree
 
@@ -19,7 +19,7 @@ def _load_tei(path: Path) -> etree._Element:
         return etree.parse(fh, parser).getroot()
 
 
-def extract_figures_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
+def extract_figures_from_tei(tei_path: Path) -> list[dict[str, Any]]:
     """
     从 TEI XML 中抽取图信息
 
@@ -31,7 +31,7 @@ def extract_figures_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
     """
     root = _load_tei(tei_path)
     ns = {"tei": "http://www.tei-c.org/ns/1.0"}
-    figures: List[Dict[str, Any]] = []
+    figures: list[dict[str, Any]] = []
 
     for idx, fig in enumerate(root.xpath(".//tei:figure", namespaces=ns)):
         figure_id = fig.get("{http://www.w3.org/XML/1998/namespace}id") or fig.get("id")
@@ -56,7 +56,7 @@ def extract_figures_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
     return figures
 
 
-def extract_tables_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
+def extract_tables_from_tei(tei_path: Path) -> list[dict[str, Any]]:
     """
     从 TEI XML 中抽取表格信息（结构化为文本）
 
@@ -68,7 +68,7 @@ def extract_tables_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
     """
     root = _load_tei(tei_path)
     ns = {"tei": "http://www.tei-c.org/ns/1.0"}
-    tables: List[Dict[str, Any]] = []
+    tables: list[dict[str, Any]] = []
 
     for idx, table in enumerate(root.xpath(".//tei:table", namespaces=ns)):
         table_id = table.get("{http://www.w3.org/XML/1998/namespace}id") or table.get("id")
@@ -77,7 +77,10 @@ def extract_tables_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
 
         rows = []
         for row in table.findall(".//tei:row", namespaces=ns):
-            cells = [("".join(cell.itertext())).strip() for cell in row.findall("tei:cell", namespaces=ns)]
+            cells = [
+                ("".join(cell.itertext())).strip()
+                for cell in row.findall("tei:cell", namespaces=ns)
+            ]
             if cells:
                 rows.append(cells)
 
@@ -91,4 +94,3 @@ def extract_tables_from_tei(tei_path: Path) -> List[Dict[str, Any]]:
         )
 
     return tables
-

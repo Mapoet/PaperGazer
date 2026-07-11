@@ -19,4 +19,3 @@ __all__ = [
     "analyze_topic_trends",
     "monitor_oa",
 ]
-

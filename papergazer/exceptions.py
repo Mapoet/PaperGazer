@@ -73,4 +73,3 @@ class ValidationError(PaperGazerError):
     """数据验证错误"""
 
     pass
-

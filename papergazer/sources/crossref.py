@@ -4,8 +4,8 @@ Crossref API 封装：增量拉取期刊论文
 """
 
 import logging
-from datetime import date, datetime, timezone
-from typing import AsyncIterator, List, Optional, Union
+from collections.abc import AsyncIterator
+from datetime import UTC, date, datetime
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -24,9 +24,9 @@ CROSSREF_API_URL = "https://api.crossref.org/works"
     reraise=True,
 )
 async def fetch_crossref_issn_increment(
-    issns: List[str],
-    since: Union[date, datetime, str],
-    until: Optional[Union[date, datetime, str]] = None,
+    issns: list[str],
+    since: date | datetime | str,
+    until: date | datetime | str | None = None,
     mailto: str = "",
     rows: int = 1000,
 ) -> AsyncIterator[CrossrefWork]:
@@ -48,11 +48,11 @@ async def fetch_crossref_issn_increment(
         since_str = since.isoformat()
     else:
         since_str = str(since)
-    
+
     if until is None:
         # 如果没有指定结束日期，使用当前日期
-        until = datetime.now(timezone.utc).date() if isinstance(since, (date, datetime)) else date.today()
-    
+        until = datetime.now(UTC).date() if isinstance(since, (date, datetime)) else date.today()
+
     if isinstance(until, (date, datetime)):
         until_str = until.isoformat()
     else:
@@ -60,7 +60,9 @@ async def fetch_crossref_issn_increment(
 
     # 构建 filter 参数：使用 from-pub-date 和 until-pub-date
     issn_filter = ",".join([f"issn:{issn}" for issn in issns])
-    filter_str = f"{issn_filter},type:journal-article,from-pub-date:{since_str},until-pub-date:{until_str}"
+    filter_str = (
+        f"{issn_filter},type:journal-article,from-pub-date:{since_str},until-pub-date:{until_str}"
+    )
 
     params = {
         "filter": filter_str,
@@ -80,7 +82,7 @@ async def fetch_crossref_issn_increment(
         while iteration < max_iterations:
             iteration += 1
             current_cursor = params.get("cursor", "*")
-            
+
             # 检查是否遇到重复的游标
             if current_cursor in seen_cursors:
                 logger.warning(f"检测到重复游标 {current_cursor[:50]}...，退出循环")
@@ -129,7 +131,9 @@ async def fetch_crossref_issn_increment(
             if next_cursor == current_cursor:
                 # 如果返回的记录数少于请求的rows数，说明确实没有更多数据了
                 if items_count < rows:
-                    logger.debug(f"返回记录数 ({items_count}) 少于请求数 ({rows})，且 next-cursor 与当前 cursor 相同，退出循环")
+                    logger.debug(
+                        f"返回记录数 ({items_count}) 少于请求数 ({rows})，且 next-cursor 与当前 cursor 相同，退出循环"
+                    )
                     break
                 else:
                     # 如果返回了满页数据，但next-cursor相同，这是API的限制
@@ -151,7 +155,7 @@ async def fetch_crossref_issn_increment(
             logger.error(f"达到最大迭代次数 {max_iterations}，强制退出循环")
 
 
-async def fetch_crossref_by_doi(doi: str, mailto: str) -> Optional[CrossrefWork]:
+async def fetch_crossref_by_doi(doi: str, mailto: str) -> CrossrefWork | None:
     """
     按 DOI 获取单个工作项
 
@@ -183,4 +187,3 @@ async def fetch_crossref_by_doi(doi: str, mailto: str) -> Optional[CrossrefWork]
             if e.response.status_code == 404:
                 return None
             raise
-

@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence
 
 from papergazer.config import Settings
 from papergazer.store.db import (
@@ -56,7 +56,7 @@ def _clean_markup(text: str) -> str:
 
 def _compose_text(paper: PaperItem, fields: Sequence[str], max_chars: int) -> str:
     """根据配置字段拼接文本内容。"""
-    fragments: List[str] = []
+    fragments: list[str] = []
 
     for field in fields:
         attr = FIELD_ALIAS.get(field, field)
@@ -99,8 +99,8 @@ def generate_embeddings_for_papers(
     model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
     fields: Sequence[str] = ("title", "abstract"),
     batch_size: int = 32,
-    since_days: Optional[int] = None,
-    limit: Optional[int] = None,
+    since_days: int | None = None,
+    limit: int | None = None,
     force: bool = False,
     max_chars: int = 4096,
     dry_run: bool = False,
@@ -131,7 +131,7 @@ def generate_embeddings_for_papers(
         "model": model_name,
     }
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     try:
         query = session.query(PaperItem)
@@ -173,9 +173,9 @@ def generate_embeddings_for_papers(
 
         model = None
 
-        for chunk in _chunk(papers, batch_size=batch_size):
-            texts: List[str] = []
-            to_embed: List[PaperItem] = []
+        for chunk in _chunk(papers, size=batch_size):
+            texts: list[str] = []
+            to_embed: list[PaperItem] = []
 
             for paper in chunk:
                 stats["processed"] += 1

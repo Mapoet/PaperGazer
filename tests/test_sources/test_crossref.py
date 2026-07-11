@@ -2,12 +2,13 @@
 Crossref 数据源模块测试
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
 from datetime import date
+from unittest.mock import AsyncMock, Mock, patch
 
-from papergazer.sources.crossref import fetch_crossref_issn_increment, fetch_crossref_by_doi
+import pytest
+
 from papergazer.models import CrossrefWork
+from papergazer.sources.crossref import fetch_crossref_by_doi, fetch_crossref_issn_increment
 
 
 @pytest.mark.asyncio
@@ -129,10 +130,11 @@ async def test_crossref_work_to_metadata():
     assert len(metadata.authors) == 1
     assert metadata.authors[0].name == "John Doe"
     # affiliation 可能是字符串或 None
-    assert metadata.authors[0].affiliation is None or isinstance(metadata.authors[0].affiliation, str)
+    assert metadata.authors[0].affiliation is None or isinstance(
+        metadata.authors[0].affiliation, str
+    )
     assert metadata.venue == "Nature"
     assert metadata.issn_print == "0028-0836"
     assert metadata.issn_online == "1476-4687"
     assert metadata.published_date == date(2025, 1, 15)
     assert metadata.abstract == "Test abstract"
-

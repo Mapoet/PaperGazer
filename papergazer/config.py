@@ -3,10 +3,9 @@
 所有配置从 YAML 文件读取
 """
 
-import yaml
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
+import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,7 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ArxivConfig(BaseSettings):
     """arXiv 配置"""
 
-    categories: List[str] = Field(
+    categories: list[str] = Field(
         default=["eess.SP", "physics.space-ph"],
         description="关注的 arXiv 分类",
     )
@@ -25,7 +24,7 @@ class ArxivConfig(BaseSettings):
 class JournalsConfig(BaseSettings):
     """期刊配置"""
 
-    issn: Dict[str, List[str]] = Field(
+    issn: dict[str, list[str]] = Field(
         default_factory=lambda: {
             "nature": ["0028-0836", "1476-4687"],
             "science": ["0036-8075", "1095-9203"],
@@ -69,7 +68,7 @@ class GrobidConfig(BaseSettings):
         description="GROBID 服务基础地址，例如 http://localhost:8070",
     )
     timeout_seconds: float = Field(default=60.0, description="请求超时时间（秒）")
-    output_dir: Optional[str] = Field(
+    output_dir: str | None = Field(
         default=None,
         description="TEI 输出目录（为空则与 PDF 同目录或使用默认数据目录）",
     )
@@ -91,20 +90,31 @@ class RetryConfig(BaseSettings):
     exponential_base: float = Field(default=2.0, description="指数退避基数")
 
 
+class HttpConfig(BaseSettings):
+    """Shared outbound HTTP policy."""
+
+    trust_env: bool = Field(
+        default=True,
+        description="是否读取 HTTP(S)_PROXY、NO_PROXY 等环境变量",
+    )
+    connect_timeout: float = Field(default=10.0, gt=0)
+    read_timeout: float = Field(default=60.0, gt=0)
+    write_timeout: float = Field(default=60.0, gt=0)
+    pool_timeout: float = Field(default=10.0, gt=0)
+
+
 class FigureExtractionConfig(BaseSettings):
     """图表抽取配置"""
 
     enabled: bool = Field(default=False, description="是否启用图表抽取流程")
     prefer_pdf: bool = Field(default=True, description="优先使用 PDF 抽取，否则回退到 TEI")
-    pdffigures2_path: Optional[str] = Field(
+    pdffigures2_path: str | None = Field(
         default=None, description="pdffigures2 可执行文件路径（若为空则仅使用 TEI ）"
     )
-    table_transformer_model: Optional[str] = Field(
+    table_transformer_model: str | None = Field(
         default=None, description="table-transformer 模型权重或服务地址"
     )
-    max_per_paper: int = Field(
-        default=20, description="每篇论文最多保存的图表数量（分别计算）"
-    )
+    max_per_paper: int = Field(default=20, description="每篇论文最多保存的图表数量（分别计算）")
     cache_dir: str = Field(
         default="./data/cache/figures",
         description="临时缓存目录（用于外部工具输出）",
@@ -119,7 +129,7 @@ class OrcidConfig(BaseSettings):
         default="https://pub.orcid.org/v3.0/expanded-search",
         description="ORCID Expanded Search API 基础地址",
     )
-    token: Optional[str] = Field(
+    token: str | None = Field(
         default=None, description="ORCID API Token（可选，若未提供则使用匿名速率限制）"
     )
     max_results: int = Field(default=5, description="每次匹配返回的最大结果数")
@@ -156,7 +166,7 @@ class EmbeddingConfig(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         description="sentence-transformers 模型名称",
     )
-    fields: List[str] = Field(
+    fields: list[str] = Field(
         default_factory=lambda: ["title", "abstract"],
         description="拼接文本字段（title / abstract / tei）",
     )
@@ -177,7 +187,7 @@ class Settings(BaseSettings):
         description="联系邮箱（用于 Crossref/Unpaywall API），从 YAML 配置文件读取",
     )
     # 预留API key字段（如果未来需要）
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API密钥（如果未来需要），从 YAML 配置文件读取",
     )
@@ -188,12 +198,13 @@ class Settings(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     grobid: GrobidConfig = Field(default_factory=GrobidConfig)
     retry: RetryConfig = Field(default_factory=RetryConfig)
+    http: HttpConfig = Field(default_factory=HttpConfig)
     figures: FigureExtractionConfig = Field(default_factory=FigureExtractionConfig)
     identity: IdentityConfig = Field(default_factory=IdentityConfig)
     embeddings: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
 
 
-def load_config(config_path: Optional[Union[str, Path]] = None) -> Settings:
+def load_config(config_path: str | Path | None = None) -> Settings:
     """
     加载配置文件
     所有配置从 YAML 文件读取
@@ -220,11 +231,17 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Settings:
         )
 
     # 手动加载 YAML 文件
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         config_data = yaml.safe_load(f) or {}
 
     # 创建配置实例（所有配置从 YAML 文件读取）
     settings = Settings(**config_data)
+
+    # Configure the shared client policy once per loaded application config.
+    # The local import avoids making configuration models depend on httpx.
+    from papergazer.utils.http_client import configure_http
+
+    configure_http(settings.http)
 
     # 验证邮箱是否设置
     if not settings.mailto:
@@ -235,4 +252,3 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Settings:
         )
 
     return settings
-

@@ -2,21 +2,21 @@
 集成测试：完整 Pipeline
 """
 
-import pytest
-from pathlib import Path
 from datetime import datetime
 
-from papergazer.config import load_config
-from papergazer.store.db import init_db, get_session, PaperItem, RunRecord
-from papergazer.core.ingest import run_daily_check
+import pytest
+
 from papergazer.core.fetch import fetch_by_identifier
+from papergazer.core.ingest import run_daily_check
+from papergazer.store.db import PaperItem, RunRecord, get_session, init_db
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_ingest(settings, temp_db_path):
     """测试完整巡检 Pipeline"""
     from unittest.mock import patch
-    from papergazer.store.db import init_db, get_session, RunRecord
+
+    from papergazer.store.db import init_db
 
     init_db(temp_db_path)
 
@@ -25,9 +25,10 @@ async def test_full_pipeline_ingest(settings, temp_db_path):
         yield
 
     # 运行巡检（使用 mock 数据）
-    with patch("papergazer.core.ingest.query_arxiv") as mock_arxiv, patch(
-        "papergazer.core.ingest.crossref.fetch_crossref_issn_increment"
-    ) as mock_crossref:
+    with (
+        patch("papergazer.core.ingest.query_arxiv") as mock_arxiv,
+        patch("papergazer.core.ingest.crossref.fetch_crossref_issn_increment") as mock_crossref,
+    ):
         # Mock 空结果（避免实际 API 调用）
         mock_arxiv.return_value = empty_generator()
         mock_crossref.return_value = empty_generator()
@@ -51,15 +52,13 @@ async def test_full_pipeline_ingest(settings, temp_db_path):
 async def test_full_pipeline_fetch(settings, temp_db_path, temp_papers_dir):
     """测试完整抓取 Pipeline"""
     from unittest.mock import patch
-    from papergazer.store.db import init_db, get_session, PaperItem
-    from papergazer.core.fetch import fetch_by_identifier
+
+    from papergazer.store.db import PaperItem, init_db
 
     init_db(temp_db_path)
 
     # 测试 arXiv 抓取
     with patch("papergazer.core.fetch.fetch_arxiv_pdf") as mock_fetch:
-        from pathlib import Path
-
         test_pdf = temp_papers_dir / "test.pdf"
         test_pdf.parent.mkdir(parents=True, exist_ok=True)
         test_pdf.write_bytes(b"test pdf")
@@ -86,8 +85,8 @@ async def test_database_persistence(settings, temp_db_path):
     """测试数据库持久化"""
     init_db(temp_db_path)
 
-    from papergazer.models import PaperMetadata, Author
-    from papergazer.store.db import upsert_paper, get_session
+    from papergazer.models import Author, PaperMetadata
+    from papergazer.store.db import upsert_paper
 
     # 插入数据
     metadata = PaperMetadata(
@@ -112,4 +111,3 @@ async def test_database_persistence(settings, temp_db_path):
     assert retrieved is not None
     assert retrieved.identifier == "2501.00001"
     assert retrieved.title == "Test Paper"
-

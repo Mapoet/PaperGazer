@@ -4,6 +4,14 @@
 # 联系邮箱（用于 Crossref/Unpaywall API 礼貌池）
 mailto: "your-email@domain.com"
 
+# 统一 HTTP 策略。仅当本机代理会破坏学术 API TLS 连接时设为 false。
+http:
+  trust_env: true
+  connect_timeout: 10
+  read_timeout: 60
+  write_timeout: 60
+  pool_timeout: 10
+
 # arXiv 配置（测试时使用较小值）
 arxiv:
   categories:
@@ -321,4 +329,3 @@ embeddings:
     - "abstract"
   batch_size: 32
   max_chars: 4096
-

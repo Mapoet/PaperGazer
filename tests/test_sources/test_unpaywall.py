@@ -2,11 +2,12 @@
 Unpaywall 数据源模块测试
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
-from papergazer.sources.unpaywall import best_oa
+import pytest
+
 from papergazer.models import UnpaywallResponse
+from papergazer.sources.unpaywall import best_oa
 
 
 @pytest.mark.asyncio
@@ -60,4 +61,3 @@ async def test_best_oa_not_oa():
         assert isinstance(result, UnpaywallResponse)
         assert result.is_oa is False
         assert result.pdf_url is None
-

@@ -15,4 +15,3 @@ __all__ = [
     "enrich_identities",
     "generate_tei_for_papers",
 ]
-

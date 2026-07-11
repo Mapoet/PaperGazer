@@ -5,22 +5,20 @@
 """
 
 import argparse
-import asyncio
 import json
 import sys
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from rich.console import Console
+
 from papergazer.config import load_config
 from papergazer.store.db import PaperItem, get_session, init_db
 from papergazer.utils import setup_logging
-from rich.console import Console
-from rich.progress import Progress
 
 console = Console()
 
@@ -28,12 +26,12 @@ console = Console()
 def query_papers_with_filters(
     since: date,
     until: date,
-    author: Optional[str] = None,
-    keyword: Optional[str] = None,
-    sources: Optional[List[str]] = None,
-    venues: Optional[List[str]] = None,
-    db_path: Optional[Union[str, Path]] = None,
-) -> List[Dict]:
+    author: str | None = None,
+    keyword: str | None = None,
+    sources: list[str] | None = None,
+    venues: list[str] | None = None,
+    db_path: str | Path | None = None,
+) -> list[dict]:
     """
     查询论文（带过滤条件）
 
@@ -169,11 +167,11 @@ def format_paper_markdown(paper: dict, index: int) -> str:
 
     # OA 状态
     if paper["is_oa"]:
-        oa_info = f"✅ Open Access"
+        oa_info = "✅ Open Access"
         if paper["oa_source"]:
             oa_info += f" (来源: {paper['oa_source']})"
         if paper["pdf_path"]:
-            oa_info += f" - 已下载"
+            oa_info += " - 已下载"
         md.append(f"**状态**: {oa_info}")
         md.append("")
 
@@ -200,12 +198,12 @@ def format_paper_markdown(paper: dict, index: int) -> str:
 
 
 def export_to_markdown(
-    papers: List[Dict],
+    papers: list[dict],
     output_file: Path,
     since: date,
     until: date,
-    author: Optional[str] = None,
-    keyword: Optional[str] = None,
+    author: str | None = None,
+    keyword: str | None = None,
 ) -> None:
     """
     导出论文到 Markdown 文件
@@ -221,7 +219,7 @@ def export_to_markdown(
     md_content = []
 
     # 标题和统计信息
-    md_content.append(f"# 论文摘要汇总")
+    md_content.append("# 论文摘要汇总")
     md_content.append("")
     md_content.append(f"**时间范围**: {since.strftime('%Y-%m-%d')} 至 {until.strftime('%Y-%m-%d')}")
     md_content.append("")
@@ -250,7 +248,9 @@ def export_to_markdown(
         if paper["is_oa"]:
             oa_count += 1
 
-    md_content.append(f"**开放获取论文**: {oa_count}/{len(papers)} ({oa_count*100//len(papers) if papers else 0}%)")
+    md_content.append(
+        f"**开放获取论文**: {oa_count}/{len(papers)} ({oa_count * 100 // len(papers) if papers else 0}%)"
+    )
     md_content.append("")
 
     # 期刊分布（前10个）
@@ -461,16 +461,14 @@ def main():
             keyword=args.keyword,
         )
 
-        console.print(f"[bold green]✅ 导出完成！[/bold green]")
+        console.print("[bold green]✅ 导出完成！[/bold green]")
         console.print(f"[cyan]文件: {output_file.absolute()}[/cyan]")
 
         # 统计信息
         oa_count = sum(1 for p in papers if p["is_oa"])
-        console.print(f"\n[bold cyan]统计信息:[/bold cyan]")
+        console.print("\n[bold cyan]统计信息:[/bold cyan]")
         console.print(f"  总论文数: {len(papers)}")
-        console.print(
-            f"  开放获取: {oa_count} ({oa_count*100//len(papers) if papers else 0}%)"
-        )
+        console.print(f"  开放获取: {oa_count} ({oa_count * 100 // len(papers) if papers else 0}%)")
 
     except Exception as e:
         console.print(f"[bold red]错误: {e}[/bold red]")
@@ -484,4 +482,3 @@ if __name__ == "__main__":
     from datetime import timedelta
 
     main()
-

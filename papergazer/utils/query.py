@@ -5,16 +5,14 @@
 
 import asyncio
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 from papergazer.config import Settings
 from papergazer.core.ingest import ingest_arxiv, ingest_crossref
 from papergazer.models import PaperMetadata
-from papergazer.sources.europe_pmc import search_articles_by_date
 from papergazer.sources.unpaywall import best_oa
-from papergazer.store.db import get_session, PaperItem, upsert_paper
+from papergazer.store.db import PaperItem, get_session, upsert_paper
 from papergazer.utils.db_filters import get_effective_date_filter
 
 logger = logging.getLogger(__name__)
@@ -23,7 +21,7 @@ logger = logging.getLogger(__name__)
 async def query_arxiv_by_days(
     config: Settings,
     days: int,
-    categories: Optional[List[str]] = None,
+    categories: list[str] | None = None,
     ingest: bool = False,
 ) -> int:
     """
@@ -39,16 +37,17 @@ async def query_arxiv_by_days(
         查询到的论文数量
     """
     # 初始化数据库
-    from papergazer.store.db import init_db, RunRecord, update_checkpoint
+    from papergazer.store.db import RunRecord, init_db, update_checkpoint
+
     init_db(config.store.db_path)
 
     if ingest:
         logger.info(f"抓取并查询近 {days} 天的 arXiv 论文")
-        
+
         # 设置检查点
         session = get_session()
         try:
-            checkpoint = datetime.now(timezone.utc) - timedelta(days=days)
+            checkpoint = datetime.now(UTC) - timedelta(days=days)
             session.query(RunRecord).filter_by(source="arxiv").delete()
             session.commit()
             update_checkpoint(session, "arxiv", checkpoint, 0)
@@ -66,13 +65,13 @@ async def query_arxiv_by_days(
                 config.arxiv.categories = original_categories
         else:
             count = await ingest_arxiv(config)
-        
+
         return count
     else:
         logger.info(f"查询数据库中近 {days} 天的 arXiv 论文")
-        
+
         # 只查询数据库中已有的数据
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
         cutoff_date_only = cutoff_date.date()
         session = get_session()
         try:
@@ -83,14 +82,14 @@ async def query_arxiv_by_days(
             count = query.count()
         finally:
             session.close()
-        
+
         return count
 
 
 async def query_crossref_by_days(
     config: Settings,
     days: int,
-    issns: Optional[List[str]] = None,
+    issns: list[str] | None = None,
     ingest: bool = False,
 ) -> int:
     """
@@ -106,16 +105,17 @@ async def query_crossref_by_days(
         查询到的论文数量
     """
     # 初始化数据库
-    from papergazer.store.db import init_db, RunRecord, update_checkpoint
+    from papergazer.store.db import RunRecord, init_db, update_checkpoint
+
     init_db(config.store.db_path)
 
     if ingest:
         logger.info(f"抓取并查询近 {days} 天的 Crossref 论文")
-        
+
         # 设置检查点
         session = get_session()
         try:
-            checkpoint = datetime.now(timezone.utc) - timedelta(days=days)
+            checkpoint = datetime.now(UTC) - timedelta(days=days)
             session.query(RunRecord).filter_by(source="crossref").delete()
             session.commit()
             update_checkpoint(session, "crossref", checkpoint, 0)
@@ -134,13 +134,13 @@ async def query_crossref_by_days(
                 config.journals.issn = original_issns
         else:
             count = await ingest_crossref(config)
-        
+
         return count
     else:
         logger.info(f"查询数据库中近 {days} 天的 Crossref 论文")
-        
+
         # 只查询数据库中已有的数据
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
         cutoff_date_only = cutoff_date.date()
         session = get_session()
         try:
@@ -151,7 +151,7 @@ async def query_crossref_by_days(
             count = query.count()
         finally:
             session.close()
-        
+
         return count
 
 
@@ -177,17 +177,19 @@ async def query_europe_pmc_by_days(
     """
     # 初始化数据库
     from papergazer.store.db import init_db
+
     init_db(config.store.db_path)
 
     # 计算日期范围
-    to_date = datetime.now(timezone.utc).date()
+    to_date = datetime.now(UTC).date()
     from_date = to_date - timedelta(days=days)
 
     if ingest:
         logger.info(f"抓取并查询近 {days} 天的 Europe PMC 论文")
-        
+
         from papergazer.models import Author
         from papergazer.sources.europe_pmc import search_articles_by_date
+
         session = get_session()
         count = 0
 
@@ -279,7 +281,7 @@ async def query_europe_pmc_by_days(
                 authors=authors,
                 venue=venue,
                 published_date=published_date,
-                updated_date=datetime.now(timezone.utc) if published_date else None,
+                updated_date=datetime.now(UTC) if published_date else None,
                 doi=doi,
                 url_landing=url_landing,
                 abstract=abstract,
@@ -314,7 +316,7 @@ async def query_europe_pmc_by_days(
         return count
     else:
         logger.info(f"查询数据库中近 {days} 天的 Europe PMC 论文")
-        
+
         # 只查询数据库中已有的数据
         session = get_session()
         try:
@@ -326,14 +328,14 @@ async def query_europe_pmc_by_days(
             count = query.count()
         finally:
             session.close()
-        
+
         return count
 
 
 async def query_unpaywall_by_days(
     config: Settings,
     days: int,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     ingest: bool = False,
 ) -> dict:
     """
@@ -350,11 +352,12 @@ async def query_unpaywall_by_days(
     """
     # 初始化数据库
     from papergazer.store.db import init_db
+
     init_db(config.store.db_path)
-    
+
     session = get_session()
     try:
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         items = (
             session.query(PaperItem)
@@ -373,9 +376,9 @@ async def query_unpaywall_by_days(
 
         if ingest:
             logger.info(f"查询近 {days} 天论文的 Unpaywall OA 状态（调用 API）")
-            
+
             from papergazer.sources.crossref import fetch_crossref_by_doi
-            
+
             for item in items:
                 try:
                     oa_info = await best_oa(item.doi, config.mailto)
@@ -417,7 +420,7 @@ async def query_unpaywall_by_days(
                     error_count += 1
         else:
             logger.info(f"统计数据库中近 {days} 天论文的 OA 状态（不调用 API）")
-            
+
             # 只统计数据库中已有的 OA 状态
             for item in items:
                 if item.is_oa is True:
@@ -441,8 +444,8 @@ async def query_unpaywall_by_days(
 async def query_all_sources_by_days(
     config: Settings,
     days: int,
-    sources: Optional[List[str]] = None,
-    max_results: Optional[dict] = None,
+    sources: list[str] | None = None,
+    max_results: dict | None = None,
     ingest: bool = False,
 ) -> dict:
     """
@@ -461,8 +464,9 @@ async def query_all_sources_by_days(
     """
     # 初始化数据库（所有查询都需要数据库）
     from papergazer.store.db import init_db
+
     init_db(config.store.db_path)
-    
+
     if sources is None:
         sources = ["arxiv", "crossref", "eupmc", "unpaywall"]
 
@@ -512,10 +516,10 @@ async def query_all_sources_by_days(
 
 def search_papers_by_author(
     author_name: str,
-    sources: Optional[List[str]] = None,
-    limit: Optional[int] = None,
-    db_path: Optional[Union[str, Path]] = None,
-) -> List[Dict]:
+    sources: list[str] | None = None,
+    limit: int | None = None,
+    db_path: str | Path | None = None,
+) -> list[dict]:
     """
     按作者名称搜索论文
 
@@ -528,52 +532,61 @@ def search_papers_by_author(
     Returns:
         论文列表
     """
-    from papergazer.utils.analyze import _ensure_db_initialized
     import json
-    
+
+    from papergazer.utils.analyze import _ensure_db_initialized
+
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
         query = session.query(PaperItem)
-        
+
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
-        
+
         # 在 authors_json 中搜索作者名称
         items = query.all()
         papers = []
-        
+
         for item in items:
             if not item.authors_json:
                 continue
-            
+
             try:
                 authors_data = json.loads(item.authors_json)
                 for author_data in authors_data:
                     name = author_data.get("name", "").strip()
                     if author_name.lower() in name.lower():
                         authors = [a.get("name", "") for a in authors_data]
-                        papers.append({
-                            "id": item.id,
-                            "source": item.source,
-                            "title": item.title,
-                            "doi": item.doi,
-                            "identifier": item.identifier,
-                            "authors": authors,
-                            "venue": item.venue,
-                            "published_date": str(item.published_date) if item.published_date else None,
-                            "updated_date": str(item.updated_date) if item.updated_date else None,
-                            "is_oa": item.is_oa,
-                            "oa_source": item.oa_source,
-                            "has_abstract": bool(item.abstract_jats and item.abstract_jats.strip()),
-                        })
+                        papers.append(
+                            {
+                                "id": item.id,
+                                "source": item.source,
+                                "title": item.title,
+                                "doi": item.doi,
+                                "identifier": item.identifier,
+                                "authors": authors,
+                                "venue": item.venue,
+                                "published_date": str(item.published_date)
+                                if item.published_date
+                                else None,
+                                "updated_date": str(item.updated_date)
+                                if item.updated_date
+                                else None,
+                                "is_oa": item.is_oa,
+                                "oa_source": item.oa_source,
+                                "has_abstract": bool(
+                                    item.abstract_jats and item.abstract_jats.strip()
+                                ),
+                            }
+                        )
                         break  # 找到匹配的作者后，不再检查其他作者
             except (json.JSONDecodeError, TypeError):
                 continue
-            
+
             if limit and len(papers) >= limit:
                 break
-        
+
         return papers[:limit] if limit else papers
     finally:
         session.close()
@@ -581,10 +594,10 @@ def search_papers_by_author(
 
 def search_papers_by_venue(
     venue_name: str,
-    sources: Optional[List[str]] = None,
-    limit: Optional[int] = None,
-    db_path: Optional[Union[str, Path]] = None,
-) -> List[Dict]:
+    sources: list[str] | None = None,
+    limit: int | None = None,
+    db_path: str | Path | None = None,
+) -> list[dict]:
     """
     按期刊/会议名称搜索论文
 
@@ -597,27 +610,26 @@ def search_papers_by_venue(
     Returns:
         论文列表
     """
-    from papergazer.utils.analyze import _ensure_db_initialized
     import json
-    
+
+    from papergazer.utils.analyze import _ensure_db_initialized
+
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
-        query = session.query(PaperItem).filter(
-            PaperItem.venue.ilike(f"%{venue_name}%")
-        )
-        
+        query = session.query(PaperItem).filter(PaperItem.venue.ilike(f"%{venue_name}%"))
+
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
-        
+
         query = query.order_by(PaperItem.published_date.desc())
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         items = query.all()
         papers = []
-        
+
         for item in items:
             authors = []
             if item.authors_json:
@@ -626,22 +638,24 @@ def search_papers_by_venue(
                     authors = [a.get("name", "") for a in authors_data]
                 except (json.JSONDecodeError, TypeError):
                     pass
-            
-            papers.append({
-                "id": item.id,
-                "source": item.source,
-                "title": item.title,
-                "doi": item.doi,
-                "identifier": item.identifier,
-                "authors": authors,
-                "venue": item.venue,
-                "published_date": str(item.published_date) if item.published_date else None,
-                "updated_date": str(item.updated_date) if item.updated_date else None,
-                "is_oa": item.is_oa,
-                "oa_source": item.oa_source,
-                "has_abstract": bool(item.abstract_jats and item.abstract_jats.strip()),
-            })
-        
+
+            papers.append(
+                {
+                    "id": item.id,
+                    "source": item.source,
+                    "title": item.title,
+                    "doi": item.doi,
+                    "identifier": item.identifier,
+                    "authors": authors,
+                    "venue": item.venue,
+                    "published_date": str(item.published_date) if item.published_date else None,
+                    "updated_date": str(item.updated_date) if item.updated_date else None,
+                    "is_oa": item.is_oa,
+                    "oa_source": item.oa_source,
+                    "has_abstract": bool(item.abstract_jats and item.abstract_jats.strip()),
+                }
+            )
+
         return papers
     finally:
         session.close()
@@ -649,11 +663,11 @@ def search_papers_by_venue(
 
 def search_papers_by_keyword(
     keyword: str,
-    sources: Optional[List[str]] = None,
+    sources: list[str] | None = None,
     search_in: str = "both",  # 'title', 'abstract', 'both'
-    limit: Optional[int] = None,
-    db_path: Optional[Union[str, Path]] = None,
-) -> List[Dict]:
+    limit: int | None = None,
+    db_path: str | Path | None = None,
+) -> list[dict]:
     """
     按关键词搜索论文（标题和/或摘要）
 
@@ -667,38 +681,39 @@ def search_papers_by_keyword(
     Returns:
         论文列表
     """
-    from papergazer.utils.analyze import _ensure_db_initialized
     import json
-    
+
+    from papergazer.utils.analyze import _ensure_db_initialized
+
     _ensure_db_initialized(db_path)
     session = get_session()
     try:
         from sqlalchemy import or_
-        
+
         conditions = []
-        
+
         if search_in in ("title", "both"):
             conditions.append(PaperItem.title.ilike(f"%{keyword}%"))
-        
+
         if search_in in ("abstract", "both"):
             conditions.append(PaperItem.abstract_jats.ilike(f"%{keyword}%"))
-        
+
         if not conditions:
             return []
-        
+
         query = session.query(PaperItem).filter(or_(*conditions))
-        
+
         if sources:
             query = query.filter(PaperItem.source.in_(sources))
-        
+
         query = query.order_by(PaperItem.published_date.desc())
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         items = query.all()
         papers = []
-        
+
         for item in items:
             authors = []
             if item.authors_json:
@@ -707,23 +722,24 @@ def search_papers_by_keyword(
                     authors = [a.get("name", "") for a in authors_data]
                 except (json.JSONDecodeError, TypeError):
                     pass
-            
-            papers.append({
-                "id": item.id,
-                "source": item.source,
-                "title": item.title,
-                "doi": item.doi,
-                "identifier": item.identifier,
-                "authors": authors,
-                "venue": item.venue,
-                "published_date": str(item.published_date) if item.published_date else None,
-                "updated_date": str(item.updated_date) if item.updated_date else None,
-                "is_oa": item.is_oa,
-                "oa_source": item.oa_source,
-                "has_abstract": bool(item.abstract_jats and item.abstract_jats.strip()),
-            })
-        
+
+            papers.append(
+                {
+                    "id": item.id,
+                    "source": item.source,
+                    "title": item.title,
+                    "doi": item.doi,
+                    "identifier": item.identifier,
+                    "authors": authors,
+                    "venue": item.venue,
+                    "published_date": str(item.published_date) if item.published_date else None,
+                    "updated_date": str(item.updated_date) if item.updated_date else None,
+                    "is_oa": item.is_oa,
+                    "oa_source": item.oa_source,
+                    "has_abstract": bool(item.abstract_jats and item.abstract_jats.strip()),
+                }
+            )
+
         return papers
     finally:
         session.close()
-
