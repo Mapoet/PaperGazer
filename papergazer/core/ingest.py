@@ -38,7 +38,10 @@ async def ingest_arxiv(
         # 如果指定了时间范围，忽略检查点过滤
         if since is not None or ignore_checkpoint:
             if since is not None:
-                if since.tzinfo is None:
+                # 兼容调用方传入 date（非 datetime）
+                if isinstance(since, date) and not isinstance(since, datetime):
+                    since = datetime.combine(since, datetime.min.time()).replace(tzinfo=UTC)
+                elif since.tzinfo is None:
                     since = since.replace(tzinfo=UTC)
                 logger.info(f"手动指定起始时间: {since}，忽略检查点过滤")
             else:
